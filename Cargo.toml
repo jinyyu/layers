@@ -1,0 +1,6 @@
+[package]
+name = "filedump"
+version = "0.1.0"
+authors = ["ljy <jinyyu@hotmail.com>"]
+
+[dependencies]
