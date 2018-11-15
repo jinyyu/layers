@@ -6,12 +6,14 @@ extern crate argparse;
 use std::io::Write;
 use env_logger::Builder;
 
+mod config;
+
 fn main() {
-    let mut config = "/etc/filedump/config.yaml".to_string();
+    let mut configure = "/etc/layers/config.yaml".to_string();
     {
         let mut ap = argparse::ArgumentParser::new();
-        ap.set_description("file dump");
-        ap.refer(&mut config)
+        ap.set_description("layers");
+        ap.refer(&mut configure)
             .add_option(&["-c", "--config"], argparse::Store,
                         "config file path");
         ap.parse_args_or_exit();
@@ -22,5 +24,5 @@ fn main() {
             writeln!(buf, "[{}] [{}:{}] {}", record.level(), record.file().unwrap(), record.line().unwrap(), record.args())
         }).init();
 
-    debug!("config path = {}", config)
+    config::load(configure);
 }
