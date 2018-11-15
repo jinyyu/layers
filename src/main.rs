@@ -3,8 +3,6 @@ extern crate log;
 extern crate env_logger;
 extern crate argparse;
 
-
-
 use std::io::Write;
 use env_logger::Builder;
 use std::env;
@@ -12,14 +10,13 @@ use std::path::Path;
 use std::fs;
 
 mod config;
+mod pcap;
 
 struct Main {
     config: config::Configure,
 }
 
 impl Main {
-    pub fn run(&self) {}
-
     pub fn setup(&self){
         let path = Path::new(&self.config.workspace);
         let exists =  Path::exists(path);
@@ -34,9 +31,10 @@ impl Main {
                 }
             }
         }
-
         env::set_current_dir(path).unwrap()
     }
+
+    pub fn run(&self) {}
 
 }
 
