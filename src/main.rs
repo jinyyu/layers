@@ -7,6 +7,9 @@ extern crate argparse;
 
 use std::io::Write;
 use env_logger::Builder;
+use std::env;
+use std::path::Path;
+use std::fs;
 
 mod config;
 
@@ -15,7 +18,26 @@ struct Main {
 }
 
 impl Main {
-    pub fn run(&mut self) {}
+    pub fn run(&self) {}
+
+    pub fn setup(&self){
+        let path = Path::new(&self.config.workspace);
+        let exists =  Path::exists(path);
+        if !exists {
+            let result = fs::create_dir(path);
+            match result {
+                Ok(_) => {
+                    debug!("create dir success");
+                }
+                Err(err) =>{
+                    panic!("create workspace dir error {}", err)
+                }
+            }
+        }
+
+        env::set_current_dir(path).unwrap()
+    }
+
 }
 
 fn main() {
@@ -38,5 +60,6 @@ fn main() {
         config: config::load(configure),
     };
 
+    app.setup();
     app.run();
 }

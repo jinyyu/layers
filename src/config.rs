@@ -1,43 +1,13 @@
 extern crate yaml_rust;
 
-use std::env;
 use std::fs::File;
 use std::io::prelude::*;
 use self::yaml_rust::yaml;
 
 pub struct Configure {
-    interface: String,
-    workspace: String,
+    pub interface: String,
+    pub workspace: String,
 }
-
-
-fn print_indent(indent: usize) {
-    for _ in 0..indent {
-        print!("    ");
-    }
-}
-
-fn dump_node(doc: &yaml::Yaml, indent: usize) {
-    match *doc {
-        yaml::Yaml::Array(ref v) => {
-            for x in v {
-                dump_node(x, indent + 1);
-            }
-        }
-        yaml::Yaml::Hash(ref h) => {
-            for (k, v) in h {
-                print_indent(indent);
-                debug!("{:?}:", k);
-                dump_node(v, indent + 1);
-            }
-        }
-        _ => {
-            print_indent(indent);
-            debug!("{:?}", doc);
-        }
-    }
-}
-
 
 pub fn load(path: String) -> Configure {
     let mut f = File::open(path).unwrap();
