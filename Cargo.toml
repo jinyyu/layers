@@ -7,3 +7,4 @@ authors = ["ljy <jinyyu@hotmail.com>"]
 log = "0.4.6"
 env_logger = "0.6.0"
 argparse = "0.2.2"
+yaml-rust = "0.4.2"
