@@ -2,6 +2,8 @@
 extern crate log;
 extern crate env_logger;
 extern crate argparse;
+extern crate libc;
+extern crate yaml_rust;
 
 use std::io::Write;
 use env_logger::Builder;
@@ -10,23 +12,29 @@ use std::path::Path;
 use std::fs;
 
 mod config;
-mod pcap;
+mod daq;
 
 struct Main {
     config: config::Configure,
+    daq: Option<daq::DAQ>,
 }
 
 impl Main {
-    pub fn setup(&self){
+    pub fn setup(&mut self) {
+        self.setup_workspace();
+        self.setup_pcap();
+    }
+
+    fn setup_workspace(&self) {
         let path = Path::new(&self.config.workspace);
-        let exists =  Path::exists(path);
+        let exists = Path::exists(path);
         if !exists {
             let result = fs::create_dir(path);
             match result {
                 Ok(_) => {
                     debug!("create dir success");
                 }
-                Err(err) =>{
+                Err(err) => {
                     panic!("create workspace dir error {}", err)
                 }
             }
@@ -34,8 +42,11 @@ impl Main {
         env::set_current_dir(path).unwrap()
     }
 
-    pub fn run(&self) {}
+    fn setup_pcap(&mut self) {
+        self.daq = daq::init(&self.config)
+    }
 
+    pub fn run(&self) {}
 }
 
 fn main() {
@@ -54,8 +65,11 @@ fn main() {
             writeln!(buf, "[{}] [{}:{}] {}", record.level(), record.file().unwrap(), record.line().unwrap(), record.args())
         }).init();
 
+
+    let conf = config::load(configure);
     let mut app = Main {
-        config: config::load(configure),
+        config: conf,
+        daq: Option::None,
     };
 
     app.setup();

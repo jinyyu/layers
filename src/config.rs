@@ -1,8 +1,7 @@
-extern crate yaml_rust;
 
 use std::fs::File;
 use std::io::prelude::*;
-use self::yaml_rust::yaml;
+use yaml_rust::yaml;
 
 pub struct Configure {
     pub interface: String,
