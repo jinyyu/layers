@@ -14,6 +14,7 @@ use std::fs;
 mod config;
 mod daq;
 mod packet;
+mod layer;
 
 struct Main {
     config: config::Configure,

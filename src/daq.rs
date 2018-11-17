@@ -3,6 +3,8 @@ use std::os::raw::c_char;
 use std::ffi::CString;
 use libc::{c_int, c_uint};
 use packet::Packet;
+use std::mem;
+use layer;
 
 use config;
 
@@ -29,15 +31,21 @@ pub struct PacketHeader {
     pub len: c_uint,
 }
 
+static ETHERNET_HEADER_LEN: usize = mem::size_of::<layer::EthernetHdr>();
+
 
 extern "C" fn loop_callback(this: *const DAQ, packet: *const PacketHeader, bytes: *const c_char) {
     let p;
     unsafe {
+        let size = (*packet).caplen as usize;
+        if size < ETHERNET_HEADER_LEN {
+            debug!("invalid packet {}", size);
+            return;
+        }
         let tm = (*packet).ts.sec * 1000 * 1000 + (*packet).ts.usec;
-        p = Packet::new(tm, bytes as *const u8, (*packet).caplen as usize);
+        p = Packet::new(tm, bytes as *const u8, size);
     };
     debug!("timestamp = {}", p.timestamp)
-
 }
 
 #[link(name = "pcap")]
