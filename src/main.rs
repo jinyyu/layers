@@ -16,16 +16,16 @@ mod daq;
 
 struct Main {
     config: config::Configure,
-    daq: Option<daq::DAQ>,
+    daq: Option<Box<daq::DAQ>>,
 }
 
 impl Main {
-    pub fn setup(&mut self) {
+    pub fn setup(& mut self) {
         self.setup_workspace();
         self.setup_pcap();
     }
 
-    fn setup_workspace(&self) {
+    fn setup_workspace(& mut self) {
         let path = Path::new(&self.config.workspace);
         let exists = Path::exists(path);
         if !exists {
@@ -43,10 +43,19 @@ impl Main {
     }
 
     fn setup_pcap(&mut self) {
-        self.daq = daq::init(&self.config)
+        self.daq = daq::init(&self.config);
     }
 
-    pub fn run(&self) {}
+    pub fn run(&mut self) {
+        match &self.daq {
+            None => {
+                panic!("inint pcap error")
+            }
+            Some(daq) => {
+                daq.run();
+            }
+        }
+    }
 }
 
 fn main() {
@@ -73,5 +82,5 @@ fn main() {
     };
 
     app.setup();
-    app.run();
+    app.daq.unwrap().run();
 }
