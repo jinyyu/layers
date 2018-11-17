@@ -1,51 +1,64 @@
 use std::ptr;
 use std::os::raw::c_char;
 use std::ffi::CString;
-use libc::{c_int, timeval, c_uint};
+use libc::{c_int, c_uint};
+use packet::Packet;
 
 use config;
 
 #[repr(C)]
-pub struct pcap_t {}
+pub struct PcapHandle {}
 
 #[repr(C)]
 pub struct DAQ {
-    handle: *mut pcap_t,
+    handle: *mut PcapHandle,
 }
-
-extern "C" fn loop_callback(this: *const DAQ, packet: *const pcap_pkthdr, bytes: *const c_char) {
-    unsafe {
-        println!("---------------------{} libpcap", (*packet).ts)
-    }
-}
-
-#[link(name = "pcap")]
-extern "C" {
-    fn pcap_create(device: *const c_char, error: *mut c_char) -> *mut pcap_t;
-    fn pcap_set_snaplen(handle: *mut pcap_t, snaplen: c_int) -> c_int;
-    fn pcap_set_buffer_size(handle: *mut pcap_t, buffer_size: c_int) -> c_int;
-    fn pcap_set_promisc(handle: *mut pcap_t, promisc: c_int) -> c_int;
-    fn pcap_activate(handle: *mut pcap_t) -> c_int;
-    fn pcap_close(handle: *mut pcap_t);
-    fn pcap_loop(handle: *mut pcap_t, count: c_int, cb: extern fn(*const DAQ, *const pcap_pkthdr, *const c_char)) -> c_int;
-}
-
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct pcap_pkthdr {
-    pub ts: timeval,
+pub struct Timeval {
+    sec: u64,
+    usec: u64,
+}
+
+#[repr(C)]
+#[derive(Copy, Clone)]
+pub struct PacketHeader {
+    pub ts: Timeval,
     pub caplen: c_uint,
     pub len: c_uint,
 }
 
 
+extern "C" fn loop_callback(this: *const DAQ, packet: *const PacketHeader, bytes: *const c_char) {
+    let p;
+    unsafe {
+        let tm = (*packet).ts.sec * 1000 * 1000 + (*packet).ts.usec;
+        p = Packet::new(tm, bytes as *const u8, (*packet).caplen as usize);
+    };
+    debug!("timestamp = {}", p.timestamp)
+
+}
+
+#[link(name = "pcap")]
+extern "C" {
+    fn pcap_create(device: *const c_char, error: *mut c_char) -> *mut PcapHandle;
+    fn pcap_set_snaplen(handle: *mut PcapHandle, snaplen: c_int) -> c_int;
+    fn pcap_set_buffer_size(handle: *mut PcapHandle, buffer_size: c_int) -> c_int;
+    fn pcap_set_promisc(handle: *mut PcapHandle, promisc: c_int) -> c_int;
+    fn pcap_activate(handle: *mut PcapHandle) -> c_int;
+    fn pcap_close(handle: *mut PcapHandle);
+    fn pcap_loop(handle: *mut PcapHandle, count: c_int, cb: extern fn(*const DAQ, *const PacketHeader, *const c_char)) -> c_int;
+}
+
+
 impl DAQ {
     pub fn run(&self) {
+        info!("pcap start");
         unsafe {
-            let ret = pcap_loop(&mut *self.handle, -1, loop_callback);
-            info!("pcap_loop exit {}", ret);
+            pcap_loop(&mut *self.handle, -1, loop_callback);
         }
+        info!("pcap_loop exit ");
     }
 }
 
@@ -61,7 +74,7 @@ pub fn init(conf: &config::Configure) -> Option<Box<DAQ>> {
     }
 }
 
-fn open_device(device: &str) -> Option<*mut pcap_t> {
+fn open_device(device: &str) -> Option<*mut PcapHandle> {
     let device = CString::new(device.as_bytes()).unwrap();
     let mut buff: Vec<c_char> = Vec::with_capacity(256);
     let errbuf = buff.as_mut_ptr();

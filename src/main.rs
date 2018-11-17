@@ -13,6 +13,7 @@ use std::fs;
 
 mod config;
 mod daq;
+mod packet;
 
 struct Main {
     config: config::Configure,
@@ -39,7 +40,8 @@ impl Main {
                 }
             }
         }
-        env::set_current_dir(path).unwrap()
+        env::set_current_dir(path).unwrap();
+        debug!("set up ok");
     }
 
     fn setup_pcap(&mut self) {
@@ -80,7 +82,6 @@ fn main() {
         config: conf,
         daq: Option::None,
     };
-
     app.setup();
     app.daq.unwrap().run();
 }
