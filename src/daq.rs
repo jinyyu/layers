@@ -29,8 +29,7 @@ pub struct PacketHeader {
     pub len: c_uint,
 }
 
-static ETHERNET_HEADER_LEN: usize = mem::size_of::<layer::EthernetHdr>();
-
+const ETHERNET_HEADER_LEN: usize = mem::size_of::<layer::EthernetHeader>();
 
 extern "C" fn loop_callback(this: *const DAQ, packet: *const PacketHeader, bytes: *const c_char) {
     let p;

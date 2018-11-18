@@ -3,6 +3,8 @@ name = "layers"
 version = "0.1.0"
 authors = ["ljy <jinyyu@hotmail.com>"]
 
+#[warn(non_snake_case)]
+
 [dependencies]
 libc = "0.2.43"
 log = "0.4.6"

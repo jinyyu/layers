@@ -25,7 +25,7 @@ pub fn ethernet_type_string(value: u16) -> &'static str {
         ETHERNET_TYPE_BRIDGE => "BRIDGE",
         ETHERNET_TYPE_REVARP => "REVARP",
         ETHERNET_TYPE_EAPOL => "EAPOL",
-        ETHERNET_TYPE_IPV6 => "ETHERNET_TYPE_IPV6",
+        ETHERNET_TYPE_IPV6 => "IPV6",
         ETHERNET_TYPE_IPX => "IPX",
         ETHERNET_TYPE_PPPOE_DISC => "DISC",
         ETHERNET_TYPE_PPPOE_SESS => "SESS",
@@ -42,8 +42,20 @@ pub fn ethernet_type_string(value: u16) -> &'static str {
 
 
 #[repr(C)]
-pub struct EthernetHdr {
+pub struct EthernetHeader {
     pub eth_dst: [u8; 6],
     pub eth_src: [u8; 6],
     pub eth_type: u16,
+}
+
+impl EthernetHeader {
+    pub fn src_mac(&self) -> String {
+        return format!("{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}", (self.eth_src)[0], (self.eth_src)[1], (self.eth_src)[2], (self.eth_src)[3], (self.eth_src)[4], (self.eth_src)[5]);
+    }
+
+    pub fn dst_mac(&self) -> String {
+        return format!("{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:2x}", (self.eth_dst)[0], (self.eth_dst)[1],(self.eth_dst)[2], (self.eth_dst)[3], (self.eth_dst)[4], (self.eth_dst)[5]);
+    }
+
+
 }
