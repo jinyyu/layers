@@ -15,6 +15,7 @@ mod config;
 mod daq;
 mod packet;
 mod layer;
+mod inet;
 
 struct Main {
     config: config::Configure,

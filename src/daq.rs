@@ -8,12 +8,10 @@ use layer;
 
 use config;
 
-#[repr(C)]
-pub struct PcapHandle {}
 
 #[repr(C)]
 pub struct DAQ {
-    handle: *mut PcapHandle,
+    handle: *const c_char,
 }
 
 #[repr(C)]
@@ -50,13 +48,13 @@ extern "C" fn loop_callback(this: *const DAQ, packet: *const PacketHeader, bytes
 
 #[link(name = "pcap")]
 extern "C" {
-    fn pcap_create(device: *const c_char, error: *mut c_char) -> *mut PcapHandle;
-    fn pcap_set_snaplen(handle: *mut PcapHandle, snaplen: c_int) -> c_int;
-    fn pcap_set_buffer_size(handle: *mut PcapHandle, buffer_size: c_int) -> c_int;
-    fn pcap_set_promisc(handle: *mut PcapHandle, promisc: c_int) -> c_int;
-    fn pcap_activate(handle: *mut PcapHandle) -> c_int;
-    fn pcap_close(handle: *mut PcapHandle);
-    fn pcap_loop(handle: *mut PcapHandle, count: c_int, cb: extern fn(*const DAQ, *const PacketHeader, *const c_char)) -> c_int;
+    fn pcap_create(device: *const c_char, error: *mut c_char) -> *const c_char;
+    fn pcap_set_snaplen(handle: *const c_char, snaplen: c_int) -> c_int;
+    fn pcap_set_buffer_size(handle: *const c_char, buffer_size: c_int) -> c_int;
+    fn pcap_set_promisc(handle: *const c_char, promisc: c_int) -> c_int;
+    fn pcap_activate(handle: *const c_char) -> c_int;
+    fn pcap_close(handle: *const c_char);
+    fn pcap_loop(handle: *const c_char, count: c_int, cb: extern fn(*const DAQ, *const PacketHeader, *const c_char)) -> c_int;
 }
 
 
@@ -64,11 +62,20 @@ impl DAQ {
     pub fn run(&self) {
         info!("pcap start");
         unsafe {
-            pcap_loop(&mut *self.handle, -1, loop_callback);
+            pcap_loop(self.handle, -1, loop_callback);
         }
         info!("pcap_loop exit ");
     }
 }
+
+impl Drop for DAQ {
+    fn drop(&mut self) {
+        unsafe {
+            pcap_close(self.handle);
+        }
+    }
+}
+
 
 
 pub fn init(conf: &config::Configure) -> Option<Box<DAQ>> {
@@ -82,14 +89,14 @@ pub fn init(conf: &config::Configure) -> Option<Box<DAQ>> {
     }
 }
 
-fn open_device(device: &str) -> Option<*mut PcapHandle> {
+fn open_device(device: &str) -> Option<*const c_char> {
     let device = CString::new(device.as_bytes()).unwrap();
     let mut buff: Vec<c_char> = Vec::with_capacity(256);
-    let errbuf = buff.as_mut_ptr();
+    let buffer = buff.as_mut_ptr();
     unsafe {
-        let handle = pcap_create(device.as_ptr(), errbuf);
+        let handle = pcap_create(device.as_ptr(), buffer);
         if handle.is_null() {
-            error!("pcap_create error {}", CString::from_raw(errbuf).to_str().unwrap());
+            error!("pcap_create error {}", CString::from_raw(buffer).to_str().unwrap());
             return None;
         }
 

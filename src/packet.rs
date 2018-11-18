@@ -1,6 +1,7 @@
 use std::slice;
 use std::rc::Rc;
 use layer::*;
+use inet;
 use std::ptr;
 use std::mem;
 
@@ -23,20 +24,22 @@ impl Packet {
             ethernet: ptr::null(),
         };
 
-        packet.decode();
+        packet.decode_ethernet();
 
         return Rc::new(packet);
     }
 
-    fn decode(&mut self) {
+    fn decode_ethernet(&mut self) {
         let offset: usize = 0;
-        let offset = self.decode_ethernet(offset);
-        debug!("{} -------------------- offset", offset);
-    }
-
-
-    fn decode_ethernet(&mut self, offset: usize) -> usize {
         self.ethernet = self.data.as_ptr() as *const EthernetHdr;
-        mem::size_of::<EthernetHdr>()
+
+        unsafe {
+            let eth_type = inet::ntohs((*self.ethernet).eth_type);
+            match eth_type {
+                _ => {
+                    debug!("ethernet type {}", ethernet_type_string(eth_type));
+                }
+            }
+        }
     }
 }
