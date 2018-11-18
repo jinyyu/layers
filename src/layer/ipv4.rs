@@ -1,6 +1,7 @@
+#[repr(C)]
 pub struct IPV4Header {
     //version & header length
-    pub version: u8,
+    pub version_length: u8,
 
     //type of service
     pub tos: u8,
@@ -11,8 +12,8 @@ pub struct IPV4Header {
     //id
     pub id: u16,
 
-    //frag offset
-    pub off: u16,
+    //Flags & frag offset
+    pub flag_offset: u16,
 
     //time to live
     pub ttl: u8,
@@ -28,4 +29,10 @@ pub struct IPV4Header {
 
     //destination address
     pub dst: u32,
+}
+
+impl IPV4Header {
+    pub fn version(&self) -> u8 {
+        return (self.version_length & 0xF0) >> 4;
+    }
 }
