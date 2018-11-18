@@ -29,19 +29,16 @@ pub struct PacketHeader {
     pub len: c_uint,
 }
 
-const ETHERNET_HEADER_LEN: usize = mem::size_of::<layer::EthernetHeader>();
-
 extern "C" fn loop_callback(this: *const DAQ, packet: *const PacketHeader, bytes: *const c_char) {
     let p;
     unsafe {
-        let size = (*packet).caplen as usize;
-        if size < ETHERNET_HEADER_LEN {
-            debug!("invalid packet {}", size);
-            return;
-        }
         let tm = (*packet).ts.sec * 1000 * 1000 + (*packet).ts.usec;
-        p = Packet::new(tm, bytes as *const u8, size);
+        p = Packet::new(tm, bytes as *const u8, (*packet).len as usize);
     };
+    if !p.valid() {
+        debug!("invalid packet");
+        return;
+    }
     debug!("timestamp = {}", p.timestamp)
 }
 

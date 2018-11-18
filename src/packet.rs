@@ -22,6 +22,7 @@ const FLAG_IPV6UDP: u8 = FLAG_IPV6 | FLAG_UDP;
 
 
 pub struct Packet {
+    pub flag: u8,
     pub timestamp: u64,
     pub data: Vec<u8>,
 
@@ -31,6 +32,11 @@ pub struct Packet {
 
 
 impl Packet {
+
+    pub fn valid(&self) ->bool {
+        return self.flag & FLAG_BAD_PACKET == 0;
+    }
+
     pub fn src_mac(&self) -> String {
         unsafe {
             return (*self.ethernet).src_mac();
@@ -48,14 +54,18 @@ impl Packet {
         let array = unsafe { slice::from_raw_parts(data, size) };
 
         let mut packet = Packet {
+            flag: 0,
             data: Vec::from(array),
             timestamp,
             ethernet: ptr::null(),
             ipv4: ptr::null(),
         };
 
-        packet.decode_ethernet();
-
+        if size >= mem::size_of::<EthernetHeader>() {
+            packet.decode_ethernet();
+        } else {
+            packet.flag |= FLAG_BAD_PACKET;
+        }
         return Rc::new(packet);
     }
 
@@ -83,6 +93,7 @@ impl Packet {
 
 
     fn decode_ipv4(&mut self, offset: usize, left: usize) -> usize {
+        //assert!(self.flag & FLAG_IPV4TCP > 0);
         unsafe {
             self.ipv4 = self.data.as_ptr().offset(offset as isize) as *const IPV4Header;
             debug!("version = {}", (*self.ipv4).version());
