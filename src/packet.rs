@@ -59,6 +59,7 @@ impl Packet {
 
     #[inline]
     pub fn src_ip(&self) -> u32 {
+        assert!(self.flag & FLAG_IPV4 > 0);
         unsafe {
             return (*self.ipv4).src;
         }
@@ -66,6 +67,7 @@ impl Packet {
 
     #[inline]
     pub fn dst_ip(&self) -> u32 {
+        assert!(self.flag & FLAG_IPV4 > 0);
         unsafe {
             return (*self.ipv4).dst;
         }
