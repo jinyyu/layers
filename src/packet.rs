@@ -32,6 +32,9 @@ pub struct Packet {
 
     pub ethernet: *const EthernetHeader,
     pub ipv4: *const IPV4Header,
+    pub ip_layer_len: usize,
+
+    pub tcp: *const TCPHeader,
 }
 
 
@@ -68,8 +71,40 @@ impl Packet {
         }
     }
 
+    pub fn src_port(&self) -> u16 {
+        let port: u16;
+        unsafe {
+            if self.flag & FLAG_TCP > 0 {
+                port = (*self.tcp).sport
+            } else if self.flag & FLAG_UDP > 0 {
+                //TODO
+                port = 0u16;
+            } else {
+                port = 0;
+            }
+
+            return inet::ntohs(port);
+        }
+    }
+
+    pub fn dst_port(&self) -> u16 {
+        let port: u16;
+        unsafe {
+            if self.flag & FLAG_TCP > 0 {
+                port = (*self.tcp).dport
+            } else if self.flag & FLAG_UDP > 0 {
+                //TODO
+                port = 0u16;
+            } else {
+                port = 0;
+            }
+            return inet::ntohs(port);
+        }
+    }
+
+
     pub fn src_ip_str(&self) -> String {
-        let mut array:Vec<u8> = vec![0; 16];
+        let mut array: Vec<u8> = vec![0; 16];
         let mut ip = self.src_ip() as i32;
         unsafe {
             let p = &ip as *const i32;
@@ -79,7 +114,7 @@ impl Packet {
     }
 
     pub fn dst_ip_str(&self) -> String {
-        let mut array:Vec<u8> = vec![0; 16];
+        let mut array: Vec<u8> = vec![0; 16];
         let mut ip = self.dst_ip() as i32;
         unsafe {
             let p = &ip as *const i32;
@@ -90,7 +125,7 @@ impl Packet {
 
 
     pub fn new(timestamp: u64, data: *const u8, size: usize) -> Rc<Packet> {
-        println!("data len = {}", size);
+        debug!("data len = {}", size);
         let array = unsafe { slice::from_raw_parts(data, size) };
 
         let mut packet = Packet {
@@ -99,6 +134,8 @@ impl Packet {
             timestamp,
             ethernet: ptr::null(),
             ipv4: ptr::null(),
+            ip_layer_len: 0,
+            tcp: ptr::null(),
         };
         if size < mem::size_of::<EthernetHeader>() {
             debug!("invalid packet, size = {}", size);
@@ -114,7 +151,7 @@ impl Packet {
         let mut offset: usize = 0;
         let mut left: usize = self.data.len();
         self.ethernet = self.data.as_ptr() as *const EthernetHeader;
-        println!("{} - > {}", self.src_mac(), self.dst_mac());
+        debug!("{} -> {}", self.src_mac(), self.dst_mac());
 
         offset += mem::size_of::<EthernetHeader>();
         left -= mem::size_of::<EthernetHeader>();
@@ -123,9 +160,7 @@ impl Packet {
             match eth_type {
                 ETHERNET_TYPE_IP => {
                     self.flag |= FLAG_IPV4;
-                    offset = self.decode_ipv4(offset, left);
-
-                    println!("{} - > {}", self.src_ip_str(), self.dst_ip_str());
+                    self.decode_ipv4(offset, left);
                 }
                 _ => {
                     debug!("ethernet type {}", ethernet_type_string(eth_type));
@@ -135,25 +170,40 @@ impl Packet {
     }
 
 
-    fn decode_ipv4(&mut self, offset: usize, left: usize) -> usize {
+    fn decode_ipv4(&mut self, offset: usize, left: usize) {
         assert!(self.flag & FLAG_IPV4 > 0);
 
         if left < mem::size_of::<IPV4Header>() {
             self.flag |= FLAG_BAD_PACKET;
-            return 0;
+            return;
         }
 
         unsafe {
             self.ipv4 = self.data.as_ptr().offset(offset as isize) as *const IPV4Header;
             if (*self.ipv4).version() != 4 {
-                debug!("invalid ip version = {}", (*self.ipv4).version());
+                debug!("bad version {}", (*self.ipv4).version());
                 self.flag |= FLAG_BAD_PACKET;
-                return 0;
+                return;
+            }
+            let header_len = (*self.ipv4).header_len() as usize;
+            if left < header_len {
+                debug!("bad packet {}, {}", left, header_len);
+                self.flag |= FLAG_BAD_PACKET;
+                return;
             }
 
-            debug!("header len = {}", (*self.ipv4).header_len())
+            self.ip_layer_len = left;
+            self.flag |= FLAG_TCP;
+            self.decode_tcp(offset + header_len, left - header_len);
+        }
+    }
+
+    fn decode_tcp(&mut self, offset: usize, left: usize) {
+        assert!(self.flag & FLAG_TCP > 0);
+        unsafe {
+            self.tcp = self.data.as_ptr().offset(offset as isize) as *const TCPHeader;
         }
 
-        0
+        info!("port {}:{} -> {}:{}",  self.src_ip_str(), self.src_port(), self.dst_ip_str(), self.dst_port());
     }
 }
