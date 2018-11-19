@@ -13,10 +13,11 @@ extern "C" {
 
 pub fn ip_to_string(ip: u32) -> String {
     let mut array: Vec<u8> = vec![0; 16];
+
+    let raw: *const u32 = &ip as *const u32;
     let mut ip = ip as i32;
     unsafe {
-        let p = &ip as *const i32;
-        inet_ntop(AF_INET as c_int, p as *const c_char, array.as_mut_ptr() as *mut c_char, 16);
+        inet_ntop(AF_INET as c_int, raw as *const c_char, array.as_mut_ptr() as *mut c_char, 16);
         return CString::from_vec_unchecked(array).into_string().unwrap();
     }
 }
