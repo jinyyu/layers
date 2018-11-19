@@ -1,4 +1,5 @@
 #[repr(C)]
+
 pub struct IPV4Header {
     //version & header length
     pub version_length: u8,
@@ -32,7 +33,12 @@ pub struct IPV4Header {
 }
 
 impl IPV4Header {
+    #[inline]
     pub fn version(&self) -> u8 {
         return (self.version_length & 0xF0) >> 4;
+    }
+    #[inline]
+    pub fn header_len(&self) -> u8 {
+        return self.version_length & 0x0F;
     }
 }

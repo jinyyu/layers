@@ -4,6 +4,8 @@ use layer::*;
 use inet;
 use std::ptr;
 use std::mem;
+use libc::{c_int, c_char};
+use std::ffi::CString;
 
 
 const FLAG_BAD_PACKET: u8 = (0x01 << 0);
@@ -19,6 +21,8 @@ const FLAG_IPV4TCP: u8 = FLAG_IPV4 | FLAG_TCP;
 const FLAG_IPV6TCP: u8 = FLAG_IPV6 | FLAG_TCP;
 const FLAG_IPV4UDP: u8 = FLAG_IPV4 | FLAG_UDP;
 const FLAG_IPV6UDP: u8 = FLAG_IPV6 | FLAG_UDP;
+
+const AF_INET: u32 = 2; //* IP protocol family
 
 
 pub struct Packet {
@@ -36,20 +40,57 @@ impl Packet {
         return self.flag & FLAG_BAD_PACKET == 0;
     }
 
+    #[inline]
     pub fn src_mac(&self) -> String {
         unsafe {
             return (*self.ethernet).src_mac();
         }
     }
 
+    #[inline]
     pub fn dst_mac(&self) -> String {
         unsafe {
             return (*self.ethernet).dst_mac();
         }
     }
 
+    #[inline]
+    pub fn src_ip(&self) -> u32 {
+        unsafe {
+            return (*self.ipv4).src;
+        }
+    }
+
+    #[inline]
+    pub fn dst_ip(&self) -> u32 {
+        unsafe {
+            return (*self.ipv4).dst;
+        }
+    }
+
+    pub fn src_ip_str(&self) -> String {
+        let mut array:Vec<u8> = vec![0; 16];
+        let mut ip = self.src_ip() as i32;
+        unsafe {
+            let p = &ip as *const i32;
+            inet::inet_ntop(AF_INET as c_int, p as *const c_char, array.as_mut_ptr() as *mut c_char, 16);
+            return CString::from_vec_unchecked(array).into_string().unwrap();
+        }
+    }
+
+    pub fn dst_ip_str(&self) -> String {
+        let mut array:Vec<u8> = vec![0; 16];
+        let mut ip = self.dst_ip() as i32;
+        unsafe {
+            let p = &ip as *const i32;
+            inet::inet_ntop(AF_INET as c_int, p as *const c_char, array.as_mut_ptr() as *mut c_char, 16);
+            return CString::from_vec_unchecked(array).into_string().unwrap();
+        }
+    }
+
+
     pub fn new(timestamp: u64, data: *const u8, size: usize) -> Rc<Packet> {
-        debug!("data len = {}", size);
+        println!("data len = {}", size);
         let array = unsafe { slice::from_raw_parts(data, size) };
 
         let mut packet = Packet {
@@ -73,7 +114,7 @@ impl Packet {
         let mut offset: usize = 0;
         let mut left: usize = self.data.len();
         self.ethernet = self.data.as_ptr() as *const EthernetHeader;
-        debug!("{} - > {}", self.src_mac(), self.dst_mac());
+        println!("{} - > {}", self.src_mac(), self.dst_mac());
 
         offset += mem::size_of::<EthernetHeader>();
         left -= mem::size_of::<EthernetHeader>();
@@ -83,6 +124,8 @@ impl Packet {
                 ETHERNET_TYPE_IP => {
                     self.flag |= FLAG_IPV4;
                     offset = self.decode_ipv4(offset, left);
+
+                    println!("{} - > {}", self.src_ip_str(), self.dst_ip_str());
                 }
                 _ => {
                     debug!("ethernet type {}", ethernet_type_string(eth_type));
@@ -107,6 +150,8 @@ impl Packet {
                 self.flag |= FLAG_BAD_PACKET;
                 return 0;
             }
+
+            debug!("header len = {}", (*self.ipv4).header_len())
         }
 
         0

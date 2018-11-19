@@ -10,6 +10,9 @@ struct Abc {
 #[test]
 fn test_cell() {
 
+    let a = 1;
+    let b = &a as *const i32;
+
     let b = Rc::new(Abc{ a : 10});
     let c = b.clone();
     assert_eq!(10, c.a);
