@@ -5,7 +5,7 @@ use inet;
 use std::ptr;
 use std::mem;
 use libc::{c_int, c_char};
-use std::ffi::CString;
+
 
 
 const FLAG_BAD_PACKET: u8 = (0x01 << 0);
@@ -21,8 +21,6 @@ const FLAG_IPV4TCP: u8 = FLAG_IPV4 | FLAG_TCP;
 const FLAG_IPV6TCP: u8 = FLAG_IPV6 | FLAG_TCP;
 const FLAG_IPV4UDP: u8 = FLAG_IPV4 | FLAG_UDP;
 const FLAG_IPV6UDP: u8 = FLAG_IPV6 | FLAG_UDP;
-
-const AF_INET: u32 = 2; //* IP protocol family
 
 
 pub struct Packet {
@@ -106,23 +104,11 @@ impl Packet {
 
 
     pub fn src_ip_str(&self) -> String {
-        let mut array: Vec<u8> = vec![0; 16];
-        let mut ip = self.src_ip() as i32;
-        unsafe {
-            let p = &ip as *const i32;
-            inet::inet_ntop(AF_INET as c_int, p as *const c_char, array.as_mut_ptr() as *mut c_char, 16);
-            return CString::from_vec_unchecked(array).into_string().unwrap();
-        }
+        return inet::ip_to_string(self.src_ip());
     }
 
     pub fn dst_ip_str(&self) -> String {
-        let mut array: Vec<u8> = vec![0; 16];
-        let mut ip = self.dst_ip() as i32;
-        unsafe {
-            let p = &ip as *const i32;
-            inet::inet_ntop(AF_INET as c_int, p as *const c_char, array.as_mut_ptr() as *mut c_char, 16);
-            return CString::from_vec_unchecked(array).into_string().unwrap();
-        }
+        return inet::ip_to_string(self.dst_ip());
     }
 
 
