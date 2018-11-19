@@ -14,7 +14,7 @@ const FLAG_ICMP: u8 = (0x01 << 4);
 const FLAG_TCP: u8 = (0x01 << 5);
 const FLAG_UDP: u8 = (0x01 << 6);
 
-//combines
+/* now combined detections */
 const FLAG_IPV4TCP: u8 = FLAG_IPV4 | FLAG_TCP;
 const FLAG_IPV6TCP: u8 = FLAG_IPV6 | FLAG_TCP;
 const FLAG_IPV4UDP: u8 = FLAG_IPV4 | FLAG_UDP;
@@ -32,8 +32,7 @@ pub struct Packet {
 
 
 impl Packet {
-
-    pub fn valid(&self) ->bool {
+    pub fn valid(&self) -> bool {
         return self.flag & FLAG_BAD_PACKET == 0;
     }
 
@@ -60,11 +59,11 @@ impl Packet {
             ethernet: ptr::null(),
             ipv4: ptr::null(),
         };
-
-        if size >= mem::size_of::<EthernetHeader>() {
-            packet.decode_ethernet();
-        } else {
+        if size < mem::size_of::<EthernetHeader>() {
+            debug!("invalid packet, size = {}", size);
             packet.flag |= FLAG_BAD_PACKET;
+        } else {
+            packet.decode_ethernet();
         }
         return Rc::new(packet);
     }
@@ -82,6 +81,7 @@ impl Packet {
             let eth_type = inet::ntohs((*self.ethernet).eth_type);
             match eth_type {
                 ETHERNET_TYPE_IP => {
+                    self.flag |= FLAG_IPV4;
                     offset = self.decode_ipv4(offset, left);
                 }
                 _ => {
@@ -93,10 +93,20 @@ impl Packet {
 
 
     fn decode_ipv4(&mut self, offset: usize, left: usize) -> usize {
-        //assert!(self.flag & FLAG_IPV4TCP > 0);
+        assert!(self.flag & FLAG_IPV4 > 0);
+
+        if left < mem::size_of::<IPV4Header>() {
+            self.flag |= FLAG_BAD_PACKET;
+            return 0;
+        }
+
         unsafe {
             self.ipv4 = self.data.as_ptr().offset(offset as isize) as *const IPV4Header;
-            debug!("version = {}", (*self.ipv4).version());
+            if (*self.ipv4).version() != 4 {
+                debug!("invalid ip version = {}", (*self.ipv4).version());
+                self.flag |= FLAG_BAD_PACKET;
+                return 0;
+            }
         }
 
         0
