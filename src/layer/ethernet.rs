@@ -56,6 +56,4 @@ impl EthernetHeader {
     pub fn dst_mac(&self) -> String {
         return format!("{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}", (self.eth_dst)[0], (self.eth_dst)[1],(self.eth_dst)[2], (self.eth_dst)[3], (self.eth_dst)[4], (self.eth_dst)[5]);
     }
-
-
 }

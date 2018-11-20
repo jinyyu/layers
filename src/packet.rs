@@ -34,6 +34,9 @@ pub struct Packet {
     pub tcp: *const TCPHeader,
 }
 
+unsafe impl Send for Packet {}
+unsafe impl Sync for Packet {}
+
 
 impl Packet {
     pub fn valid(&self) -> bool {

@@ -10,7 +10,7 @@ use env_logger::Builder;
 use std::env;
 use std::path::Path;
 use std::fs;
-use std::rc::Rc;
+use std::sync::Arc;
 
 mod config;
 mod daq;
@@ -20,52 +20,18 @@ mod inet;
 mod dispatcher;
 
 struct Main {
-    config: config::Configure,
-    dispatcher: Option<Rc<dispatcher::Dispatcher>>,
-    daq: Option<Box<daq::DAQ>>,
+    config: Arc<config::Configure>,
+    dispatcher: Arc<dispatcher::Dispatcher>,
+    daq: Arc<daq::DAQ>,
 }
 
 impl Main {
-    pub fn setup(&mut self) {
-        self.setup_workspace();
+    pub fn run(&self) {
+        let dispatcher = self.dispatcher.clone();
 
-        self.dispatcher = Option::Some(dispatcher::init(&self.config));
-
-        self.daq = daq::init(&self.config);
-    }
-
-    fn setup_workspace(&mut self) {
-        let path = Path::new(&self.config.workspace);
-        let exists = Path::exists(path);
-        if !exists {
-            let result = fs::create_dir(path);
-            match result {
-                Ok(_) => {
-                    debug!("create dir success");
-                }
-                Err(err) => {
-                    panic!("create workspace dir error {}", err)
-                }
-            }
-        }
-        env::set_current_dir(path).unwrap();
-        debug!("set up ok");
-    }
-
-
-    pub fn run(&mut self) {
-        match &self.daq {
-            None => {
-                panic!("inint pcap error")
-            }
-            Some(daq) => {
-                daq.run( |packet| {
-                    if packet.flag & packet::FLAG_IPV4 > 0 {
-                        debug!("{}->{}", packet.src_ip_str(), packet.dst_ip_str());
-                    }
-                });
-            }
-        }
+        self.daq.run(&move |packet: Arc<packet::Packet>| {
+            dispatcher.dispatch(packet);
+        });
     }
 }
 
@@ -87,15 +53,33 @@ fn main() {
 
 
     let conf = config::load(configure);
+    setup_workspace(conf.clone());
+
+    let daq = daq::init(conf.clone());
+    let dispatcher = dispatcher::init(conf.clone());
+
     let mut app = Main {
-        config: conf,
-        dispatcher: Option::None,
-        daq: Option::None,
+        config: conf.clone(),
+        dispatcher: dispatcher.clone(),
+        daq: daq.clone(),
     };
+    app.run();
+}
 
-    app.setup();
-
-    let app = Box::new(app);
-
-    (*app).run();
+fn setup_workspace(conf: Arc<config::Configure>) {
+    let path = Path::new(&*conf.workspace);
+    let exists = Path::exists(path);
+    if !exists {
+        let result = fs::create_dir(path);
+        match result {
+            Ok(_) => {
+                debug!("create dir success");
+            }
+            Err(err) => {
+                panic!("create workspace dir error {}", err)
+            }
+        }
+    }
+    env::set_current_dir(path).unwrap();
+    debug!("set up ok");
 }

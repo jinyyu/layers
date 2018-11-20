@@ -1,4 +1,5 @@
 use std::ptr;
+use std::fs::File;
 use std::os::raw::c_char;
 use std::sync::Arc;
 use std::ffi::CString;
@@ -14,8 +15,6 @@ use config;
 pub struct DAQ {
     handle: *const c_char,
 }
-
-pub type PacketCallback = fn(packet: Arc<Packet>);
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -39,7 +38,7 @@ extern "C" fn loop_callback(ctx: *mut c_char, packet: *const PacketHeader, bytes
         if !p.valid() {
             debug!("invalid packet");
         } else {
-            let ctx = mem::transmute::<*mut c_char, *mut PacketCallback, >(ctx);
+            let ctx = mem::transmute::<*mut c_char, *mut &Fn(Arc<Packet>)>(ctx);
             (*ctx)(p);
         }
 
@@ -47,10 +46,10 @@ extern "C" fn loop_callback(ctx: *mut c_char, packet: *const PacketHeader, bytes
 }
 
 //pfring
-#[link(name = "pcap", kind = "static")]
-#[link(name = "pfring", kind = "static")]
+//#[link(name = "pcap", kind = "static")]
+//#[link(name = "pfring", kind = "static")]
 
-//#[link(name = "pcap")]
+#[link(name = "pcap")]
 extern "C" {
     fn pcap_create(_device: *const c_char, _error: *mut c_char) -> *const c_char;
     fn pcap_set_snaplen(_handle: *const c_char, _snaplen: c_int) -> c_int;
@@ -62,11 +61,10 @@ extern "C" {
 }
 
 impl DAQ {
-    pub fn run(&self, cb: PacketCallback) {
+    pub fn run(&self, cb: &Fn(Arc<Packet>)) {
         let mut callback = Box::new(cb);
         info!("pcap start");
-        unsafe {
-            pcap_loop(self.handle, -1, loop_callback, mem::transmute::<*mut PacketCallback, *mut c_char>(&mut *callback));
+        unsafe { pcap_loop(self.handle, -1, loop_callback, mem::transmute::<*mut &Fn(Arc<Packet>), *mut c_char>(&mut *callback));
         }
         info!("pcap_loop exit ");
     }
@@ -80,14 +78,16 @@ impl Drop for DAQ {
     }
 }
 
-pub fn init(conf: &config::Configure) -> Option<Box<DAQ>> {
+pub fn init(conf: Arc<config::Configure>) -> Arc<DAQ>{
     let handle = open_device(&conf.interface);
     match handle {
         Some(h) => {
             let daq = DAQ { handle: h };
-            return Some(Box::new(daq));
+            return Arc::new(daq);
         }
-        None => None,
+        None => {
+            panic!("init daq error");
+        }
     }
 }
 
