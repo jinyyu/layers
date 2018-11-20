@@ -1,7 +1,8 @@
 use libc::{c_int, c_uint, c_char};
 use std::ffi::CString;
 use std::ffi::CStr;
-use std::borrow::Cow;
+use std::mem;
+
 const AF_INET: u32 = 2; //* IP protocol family
 
 extern "C" {
@@ -14,12 +15,11 @@ extern "C" {
 
 pub fn ip_to_string(ip: u32) -> String {
     let mut array: [u8; 16] = [0; 16];
-    let raw: *const u32 = &ip as *const u32;
     let c_str;
     unsafe {
-        inet_ntop(AF_INET as c_int, raw as *const c_char, array.as_mut_ptr() as *mut c_char, 16);
+        let raw = mem::transmute::<*const u32, *mut c_char>(&ip);
+        inet_ntop(AF_INET as c_int, raw, array.as_mut_ptr() as *mut c_char, 16);
         c_str = CStr::from_bytes_with_nul_unchecked(&array);
-
     }
     return c_str.to_string_lossy().into_owned();
 }

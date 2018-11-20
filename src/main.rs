@@ -23,12 +23,12 @@ struct Main {
 }
 
 impl Main {
-    pub fn setup(& mut self) {
+    pub fn setup(&mut self) {
         self.setup_workspace();
         self.setup_pcap();
     }
 
-    fn setup_workspace(& mut self) {
+    fn setup_workspace(&mut self) {
         let path = Path::new(&self.config.workspace);
         let exists = Path::exists(path);
         if !exists {
@@ -56,7 +56,10 @@ impl Main {
                 panic!("inint pcap error")
             }
             Some(daq) => {
-                daq.run();
+                daq.run(|packet| {
+
+                    debug!("==============callback {}" , packet.dst_ip_str());
+                });
             }
         }
     }
@@ -85,5 +88,5 @@ fn main() {
         daq: Option::None,
     };
     app.setup();
-    app.daq.unwrap().run();
+    app.run();
 }

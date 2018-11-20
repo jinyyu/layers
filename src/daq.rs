@@ -1,10 +1,12 @@
 use std::ptr;
 use std::os::raw::c_char;
+use std::rc::Rc;
 use std::ffi::CString;
 use libc::{c_int, c_uint};
 use packet::Packet;
 use std::mem;
 use layer;
+
 
 use config;
 
@@ -14,32 +16,35 @@ pub struct DAQ {
     handle: *const c_char,
 }
 
+pub type PacketCallback = fn(packet: Rc<Packet>);
+
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct Timeval {
+struct Timeval {
     sec: u64,
     usec: u64,
 }
 
 #[repr(C)]
 #[derive(Copy, Clone)]
-pub struct PacketHeader {
+struct PacketHeader {
     pub ts: Timeval,
     pub caplen: c_uint,
     pub len: c_uint,
 }
 
-extern "C" fn loop_callback(this: *const DAQ, packet: *const PacketHeader, bytes: *const c_char) {
-    let p;
+extern "C" fn loop_callback(ctx: *mut c_char, packet: *const PacketHeader, bytes: *const c_char) {
     unsafe {
         let tm = (*packet).ts.sec * 1000 * 1000 + (*packet).ts.usec;
-        p = Packet::new(tm, bytes as *const u8, (*packet).len as usize);
+        let p = Packet::new(tm, bytes as *const u8, (*packet).len as usize);
+        if !p.valid() {
+            debug!("invalid packet");
+        } else {
+            let ctx = mem::transmute::<*mut c_char, *mut PacketCallback, >(ctx);
+            (*ctx)(p);
+        }
+
     };
-    if !p.valid() {
-        debug!("invalid packet");
-        return;
-    }
-    debug!("timestamp = {}", p.timestamp)
 }
 
 //pfring
@@ -48,21 +53,23 @@ extern "C" fn loop_callback(this: *const DAQ, packet: *const PacketHeader, bytes
 
 //#[link(name = "pcap")]
 extern "C" {
-    fn pcap_create(device: *const c_char, error: *mut c_char) -> *const c_char;
-    fn pcap_set_snaplen(handle: *const c_char, snaplen: c_int) -> c_int;
-    fn pcap_set_buffer_size(handle: *const c_char, buffer_size: c_int) -> c_int;
-    fn pcap_set_promisc(handle: *const c_char, promisc: c_int) -> c_int;
-    fn pcap_activate(handle: *const c_char) -> c_int;
-    fn pcap_close(handle: *const c_char);
-    fn pcap_loop(handle: *const c_char, count: c_int, cb: extern fn(*const DAQ, *const PacketHeader, *const c_char)) -> c_int;
+    fn pcap_create(_device: *const c_char, _error: *mut c_char) -> *const c_char;
+    fn pcap_set_snaplen(_handle: *const c_char, _snaplen: c_int) -> c_int;
+    fn pcap_set_buffer_size(_handle: *const c_char, _buffer_size: c_int) -> c_int;
+    fn pcap_set_promisc(_handle: *const c_char, _promisc: c_int) -> c_int;
+    fn pcap_activate(_handle: *const c_char) -> c_int;
+    fn pcap_close(_handle: *const c_char);
+    fn pcap_loop(_handle: *const c_char, _count: c_int, _cb: extern fn(ctx: *mut c_char, *const PacketHeader, *const c_char), _ctx: *mut c_char) -> c_int;
 }
 
 
+
 impl DAQ {
-    pub fn run(&self) {
+    pub fn run(&self, cb: PacketCallback) {
+        let mut callback = Box::new(cb);
         info!("pcap start");
         unsafe {
-            pcap_loop(self.handle, -1, loop_callback);
+            pcap_loop(self.handle, -1, loop_callback, mem::transmute::<*mut PacketCallback, *mut c_char>(&mut *callback));
         }
         info!("pcap_loop exit ");
     }
@@ -75,8 +82,6 @@ impl Drop for DAQ {
         }
     }
 }
-
-
 
 pub fn init(conf: &config::Configure) -> Option<Box<DAQ>> {
     let handle = open_device(&conf.interface);
