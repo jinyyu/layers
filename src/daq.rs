@@ -1,12 +1,11 @@
 use std::ptr;
 use std::os::raw::c_char;
-use std::rc::Rc;
+use std::sync::Arc;
 use std::ffi::CString;
 use libc::{c_int, c_uint};
 use packet::Packet;
 use std::mem;
 use layer;
-
 
 use config;
 
@@ -16,7 +15,7 @@ pub struct DAQ {
     handle: *const c_char,
 }
 
-pub type PacketCallback = fn(packet: Rc<Packet>);
+pub type PacketCallback = fn(packet: Arc<Packet>);
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -61,8 +60,6 @@ extern "C" {
     fn pcap_close(_handle: *const c_char);
     fn pcap_loop(_handle: *const c_char, _count: c_int, _cb: extern fn(ctx: *mut c_char, *const PacketHeader, *const c_char), _ctx: *mut c_char) -> c_int;
 }
-
-
 
 impl DAQ {
     pub fn run(&self, cb: PacketCallback) {

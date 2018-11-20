@@ -1,4 +1,3 @@
-
 use std::fs::File;
 use std::io::prelude::*;
 use yaml_rust::yaml;
@@ -6,6 +5,7 @@ use yaml_rust::yaml;
 pub struct Configure {
     pub interface: String,
     pub workspace: String,
+    pub worker_thread: i64,
 }
 
 pub fn load(path: String) -> Configure {
@@ -22,8 +22,12 @@ pub fn load(path: String) -> Configure {
 
     let workspace = doc["workspace"].as_str().unwrap();
     info!("workspace = {}", workspace);
+
+    let worker_thread = doc["worker_thread"].as_i64().unwrap();
+    info!("worker_thread = {}", worker_thread);
     Configure {
         interface: interface.to_string(),
         workspace: workspace.to_string(),
+        worker_thread,
     }
 }

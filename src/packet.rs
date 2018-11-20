@@ -1,5 +1,5 @@
 use std::slice;
-use std::rc::Rc;
+use std::sync::Arc;
 use layer::*;
 use inet;
 use std::ptr;
@@ -7,20 +7,19 @@ use std::mem;
 use libc::{c_int, c_char};
 
 
-
-const FLAG_BAD_PACKET: u8 = (0x01 << 0);
-const FLAG_IPV4: u8 = (0x01 << 1);
-const FLAG_IPV6: u8 = (0x01 << 2);
-const FLAG_ARP: u8 = (0x01 << 3);
-const FLAG_ICMP: u8 = (0x01 << 4);
-const FLAG_TCP: u8 = (0x01 << 5);
-const FLAG_UDP: u8 = (0x01 << 6);
+pub const FLAG_BAD_PACKET: u8 = (0x01 << 0);
+pub const FLAG_IPV4: u8 = (0x01 << 1);
+pub const FLAG_IPV6: u8 = (0x01 << 2);
+pub const FLAG_ARP: u8 = (0x01 << 3);
+pub const FLAG_ICMP: u8 = (0x01 << 4);
+pub const FLAG_TCP: u8 = (0x01 << 5);
+pub const FLAG_UDP: u8 = (0x01 << 6);
 
 /* now combined detections */
-const FLAG_IPV4TCP: u8 = FLAG_IPV4 | FLAG_TCP;
-const FLAG_IPV6TCP: u8 = FLAG_IPV6 | FLAG_TCP;
-const FLAG_IPV4UDP: u8 = FLAG_IPV4 | FLAG_UDP;
-const FLAG_IPV6UDP: u8 = FLAG_IPV6 | FLAG_UDP;
+pub const FLAG_IPV4TCP: u8 = FLAG_IPV4 | FLAG_TCP;
+pub const FLAG_IPV6TCP: u8 = FLAG_IPV6 | FLAG_TCP;
+pub const FLAG_IPV4UDP: u8 = FLAG_IPV4 | FLAG_UDP;
+pub const FLAG_IPV6UDP: u8 = FLAG_IPV6 | FLAG_UDP;
 
 
 pub struct Packet {
@@ -57,17 +56,19 @@ impl Packet {
 
     #[inline]
     pub fn src_ip(&self) -> u32 {
-        assert!(self.flag & FLAG_IPV4 > 0);
-        unsafe {
-            return (*self.ipv4).src;
+        if self.flag & FLAG_IPV4 > 0 {
+            return unsafe { (*self.ipv4).src };
+        } else {
+            return 0;
         }
     }
 
     #[inline]
     pub fn dst_ip(&self) -> u32 {
-        assert!(self.flag & FLAG_IPV4 > 0);
-        unsafe {
-            return (*self.ipv4).dst;
+        if self.flag & FLAG_IPV4 > 0 {
+            return unsafe { (*self.ipv4).dst };
+        } else {
+            return 0;
         }
     }
 
@@ -112,7 +113,7 @@ impl Packet {
     }
 
 
-    pub fn new(timestamp: u64, data: *const u8, size: usize) -> Rc<Packet> {
+    pub fn new(timestamp: u64, data: *const u8, size: usize) -> Arc<Packet> {
         debug!("data len = {}", size);
         let array = unsafe { slice::from_raw_parts(data, size) };
 
@@ -131,7 +132,7 @@ impl Packet {
         } else {
             packet.decode_ethernet();
         }
-        return Rc::new(packet);
+        return Arc::new(packet);
     }
 
     #[allow(non_snake_case)]
@@ -192,6 +193,6 @@ impl Packet {
             self.tcp = self.data.as_ptr().offset(offset as isize) as *const TCPHeader;
         }
 
-        info!("port {}:{} -> {}:{}",  self.src_ip_str(), self.src_port(), self.dst_ip_str(), self.dst_port());
+        info!("port {}:{} -> {}:{}", self.src_ip_str(), self.src_port(), self.dst_ip_str(), self.dst_port());
     }
 }

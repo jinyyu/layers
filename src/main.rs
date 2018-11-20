@@ -10,22 +10,28 @@ use env_logger::Builder;
 use std::env;
 use std::path::Path;
 use std::fs;
+use std::rc::Rc;
 
 mod config;
 mod daq;
 mod packet;
 mod layer;
 mod inet;
+mod dispatcher;
 
 struct Main {
     config: config::Configure,
+    dispatcher: Option<Rc<dispatcher::Dispatcher>>,
     daq: Option<Box<daq::DAQ>>,
 }
 
 impl Main {
     pub fn setup(&mut self) {
         self.setup_workspace();
-        self.setup_pcap();
+
+        self.dispatcher = Option::Some(dispatcher::init(&self.config));
+
+        self.daq = daq::init(&self.config);
     }
 
     fn setup_workspace(&mut self) {
@@ -46,9 +52,6 @@ impl Main {
         debug!("set up ok");
     }
 
-    fn setup_pcap(&mut self) {
-        self.daq = daq::init(&self.config);
-    }
 
     pub fn run(&mut self) {
         match &self.daq {
@@ -56,9 +59,10 @@ impl Main {
                 panic!("inint pcap error")
             }
             Some(daq) => {
-                daq.run(|packet| {
-
-                    debug!("==============callback {}" , packet.dst_ip_str());
+                daq.run( |packet| {
+                    if packet.flag & packet::FLAG_IPV4 > 0 {
+                        debug!("{}->{}", packet.src_ip_str(), packet.dst_ip_str());
+                    }
                 });
             }
         }
@@ -85,8 +89,13 @@ fn main() {
     let conf = config::load(configure);
     let mut app = Main {
         config: conf,
+        dispatcher: Option::None,
         daq: Option::None,
     };
+
     app.setup();
-    app.run();
+
+    let app = Box::new(app);
+
+    (*app).run();
 }

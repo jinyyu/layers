@@ -1,5 +1,4 @@
-use libc::{c_int, c_uint, c_char};
-use std::ffi::CString;
+use libc::{c_int, c_char};
 use std::ffi::CStr;
 use std::mem;
 
