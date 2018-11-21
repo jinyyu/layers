@@ -9,31 +9,7 @@ struct Abc {
 
 #[test]
 fn test_cell() {
-    use std::thread;
-    use std::sync::mpsc;
-    use std::time::Duration;
-
-    fn main() {
-        let (tx, rx) = mpsc::channel();
-
-        thread::spawn(move || {
-            for received in rx {
-                println!("Got: {}", received);
-            }
-        });
-
-        let vals = vec![
-            String::from("hi"),
-            String::from("from"),
-            String::from("the"),
-            String::from("thread"),
-        ];
-
-        for val in vals {
-            tx.send(val).unwrap();
-            thread::sleep(Duration::from_secs(1));
-        }
-
-
+    for i in 0..10 {
+        println!("hi number {} from the spawned thread!", i);
     }
 }

@@ -178,6 +178,7 @@ impl Packet {
                 return;
             }
             let header_len = (*self.ipv4).header_len() as usize;
+
             if left < header_len {
                 debug!("bad packet {}, {}", left, header_len);
                 self.flag |= FLAG_BAD_PACKET;

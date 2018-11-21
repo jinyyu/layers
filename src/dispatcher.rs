@@ -15,7 +15,7 @@ impl Dispatcher {
     pub fn dispatch(&self, packet: Arc<Packet>) {
         debug!("{}:{} ->{}:{}", packet.src_ip_str(), packet.src_port(), packet.dst_ip_str(), packet.dst_port());
         let hash = (packet.src_ip() + packet.src_port() as u32 + packet.dst_ip() + packet.dst_port() as u32) % self.n_threads as u32;
-        self.senders[hash as usize].send(packet).unwrap();
+        self.senders[hash as usize].send(packet).expect("send error----------------------------------------------------------");
     }
 }
 

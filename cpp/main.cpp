@@ -1,9 +1,6 @@
+#include <stdint.h>
 #include <stdio.h>
-#include <time.h>
-#include <arpa/inet.h>
 
-int main(int argc, char* argv[])
-{
-    struct timeval ts;
-    fprintf(stderr, "%lu-%lu\n", sizeof(ts.tv_sec), sizeof(ts.tv_usec));
+int main(int argc, char* argv[]){
+    printf("%d\n", sizeof(unsigned));
 }
