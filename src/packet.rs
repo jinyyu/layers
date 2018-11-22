@@ -76,7 +76,6 @@ impl Packet {
 
 
     pub fn new(timestamp: u64, data: *const u8, size: usize) -> Arc<Packet> {
-        debug!("data len = {}", size);
         let array = unsafe { slice::from_raw_parts(data, size) };
 
         let mut packet = Packet {
@@ -107,7 +106,6 @@ impl Packet {
         let mut offset: usize = 0;
         let mut left: usize = self.data.len();
         self.ethernet = self.data.as_ptr() as *const EthernetHeader;
-        debug!("{} -> {}", self.src_mac(), self.dst_mac());
 
         offset += mem::size_of::<EthernetHeader>();
         left -= mem::size_of::<EthernetHeader>();
@@ -119,7 +117,7 @@ impl Packet {
                     self.decode_ipv4(offset, left);
                 }
                 _ => {
-                    debug!("ethernet type {}", ethernet_type_string(eth_type));
+                    trace!("ethernet type {}", ethernet_type_string(eth_type));
                 }
             }
         }
@@ -154,8 +152,18 @@ impl Packet {
             }
 
             self.ip_layer_len = left;
-            self.flag |= FLAG_TCP;
-            self.decode_tcp(offset + header_len, left - header_len);
+
+            match (*ip).proto {
+                IPPROTO_TCP => {
+                    self.flag |= FLAG_TCP;
+                    self.decode_tcp(offset + header_len, left - header_len);
+                }
+
+                _ => {
+                    trace!("ip type {}", ip_type_string((*ip).proto));
+                }
+            }
+
         }
     }
 

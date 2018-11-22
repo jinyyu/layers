@@ -1,4 +1,3 @@
-use std::ptr;
 use std::fs::File;
 use std::os::raw::c_char;
 use std::sync::Arc;

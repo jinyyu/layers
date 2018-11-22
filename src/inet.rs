@@ -4,6 +4,7 @@ use std::mem;
 
 const AF_INET: u32 = 2; //* IP protocol family
 
+#[allow(dead_code)]
 #[link(name = "layerscpp", kind = "static")]
 extern "C" {
     pub fn htonl(hostlong: u32) -> u32;

@@ -5,6 +5,8 @@ use std::vec;
 use std::sync::mpsc;
 use packet::Packet;
 use std::num::Wrapping;
+use layer::*;
+use packet;
 
 pub struct Dispatcher {
     n_threads: u8,
@@ -30,17 +32,24 @@ pub fn init(conf: Arc<config::Configure>) -> Arc<Dispatcher> {
     for i in 0..conf.worker_thread {
         let (tx, rx) = mpsc::channel::<Arc<Packet>>();
 
-        let handle = thread::spawn(move || {
+        let cb = move || {
             loop {
+                let mut tcp_tracker = TCPTracker::new();
+
                 let packet = rx.recv().expect("channel receive error");
-                debug!("{}:{} ->{}:{}", packet.src_ip_str(), packet.src_port, packet.dst_ip_str(), packet.dst_port);
+
+                if packet.flag & packet::FLAG_TCP > 0 {
+                    tcp_tracker.get_mut().on_packet(packet);
+                }
+
             }
-        });
+        };
+
+        let handle = thread::spawn(cb);
 
         dispatcher.threads.push(handle);
         dispatcher.senders.push(tx);
     }
-
 
     debug!("threads = {}", dispatcher.threads.len());
 
