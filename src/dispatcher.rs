@@ -29,7 +29,7 @@ pub fn init(conf: Arc<config::Configure>) -> Arc<Dispatcher> {
         senders: Vec::new(),
     };
 
-    for i in 0..conf.worker_thread {
+    for _i in 0..conf.worker_thread {
         let (tx, rx) = mpsc::channel::<Arc<Packet>>();
 
         let cb = move || {
