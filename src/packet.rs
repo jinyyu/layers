@@ -27,6 +27,14 @@ pub struct Packet {
     pub timestamp: u64,
     pub data: Vec<u8>,
 
+    // host endian
+    pub src_port: u16,
+    pub dst_port: u16,
+
+    // net endian
+    pub src_ip: u32,
+    pub dst_ip: u32,
+
     pub ethernet: *const EthernetHeader,
     pub ipv4: *const IPV4Header,
     pub ip_layer_len: usize,
@@ -35,6 +43,7 @@ pub struct Packet {
 }
 
 unsafe impl Send for Packet {}
+
 unsafe impl Sync for Packet {}
 
 
@@ -57,62 +66,12 @@ impl Packet {
         }
     }
 
-    #[inline]
-    pub fn src_ip(&self) -> u32 {
-        if self.flag & FLAG_IPV4 > 0 {
-            return unsafe { (*self.ipv4).src };
-        } else {
-            return 0;
-        }
-    }
-
-    #[inline]
-    pub fn dst_ip(&self) -> u32 {
-        if self.flag & FLAG_IPV4 > 0 {
-            return unsafe { (*self.ipv4).dst };
-        } else {
-            return 0;
-        }
-    }
-
-    pub fn src_port(&self) -> u16 {
-        let port: u16;
-        unsafe {
-            if self.flag & FLAG_TCP > 0 {
-                port = (*self.tcp).sport
-            } else if self.flag & FLAG_UDP > 0 {
-                //TODO
-                port = 0u16;
-            } else {
-                port = 0;
-            }
-
-            return inet::ntohs(port);
-        }
-    }
-
-    pub fn dst_port(&self) -> u16 {
-        let port: u16;
-        unsafe {
-            if self.flag & FLAG_TCP > 0 {
-                port = (*self.tcp).dport
-            } else if self.flag & FLAG_UDP > 0 {
-                //TODO
-                port = 0u16;
-            } else {
-                port = 0;
-            }
-            return inet::ntohs(port);
-        }
-    }
-
-
     pub fn src_ip_str(&self) -> String {
-        return inet::ip_to_string(self.src_ip());
+        return inet::ip_to_string(self.src_ip);
     }
 
     pub fn dst_ip_str(&self) -> String {
-        return inet::ip_to_string(self.dst_ip());
+        return inet::ip_to_string(self.dst_ip);
     }
 
 
@@ -128,6 +87,11 @@ impl Packet {
             ipv4: ptr::null(),
             ip_layer_len: 0,
             tcp: ptr::null(),
+
+            src_port: 0,
+            dst_port: 0,
+            src_ip: 0,
+            dst_ip: 0,
         };
         if size < mem::size_of::<EthernetHeader>() {
             debug!("invalid packet, size = {}", size);
@@ -171,13 +135,17 @@ impl Packet {
         }
 
         unsafe {
-            self.ipv4 = self.data.as_ptr().offset(offset as isize) as *const IPV4Header;
-            if (*self.ipv4).version() != 4 {
+            let ip = self.data.as_ptr().offset(offset as isize) as *const IPV4Header;
+            self.ipv4 = ip;
+            self.src_ip = (*ip).src;
+            self.dst_ip = (*ip).dst;
+
+            if (*ip).version() != 4 {
                 debug!("bad version {}", (*self.ipv4).version());
                 self.flag |= FLAG_BAD_PACKET;
                 return;
             }
-            let header_len = (*self.ipv4).header_len() as usize;
+            let header_len = (*ip).header_len() as usize;
 
             if left < header_len {
                 debug!("bad packet {}, {}", left, header_len);
@@ -194,9 +162,10 @@ impl Packet {
     fn decode_tcp(&mut self, offset: usize, left: usize) {
         assert!(self.flag & FLAG_TCP > 0);
         unsafe {
-            self.tcp = self.data.as_ptr().offset(offset as isize) as *const TCPHeader;
+            let tcp = self.data.as_ptr().offset(offset as isize) as *const TCPHeader;
+            self.tcp = tcp;
+            self.src_port = inet::ntohs((*tcp).sport);
+            self.dst_port = inet::ntohs((*tcp).dport);
         }
-
-        info!("port {}:{} -> {}:{}", self.src_ip_str(), self.src_port(), self.dst_ip_str(), self.dst_port());
     }
 }

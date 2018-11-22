@@ -13,9 +13,20 @@ pub struct Dispatcher {
 
 impl Dispatcher {
     pub fn dispatch(&self, packet: Arc<Packet>) {
-        debug!("{}:{} ->{}:{}", packet.src_ip_str(), packet.src_port(), packet.dst_ip_str(), packet.dst_port());
-        let hash = (packet.src_ip() + packet.src_port() as u32 + packet.dst_ip() + packet.dst_port() as u32) % self.n_threads as u32;
-        self.senders[hash as usize].send(packet).expect("send error----------------------------------------------------------");
+        debug!("{}:{} ->{}:{}", packet.src_ip_str(), packet.src_port, packet.dst_ip_str(), packet.dst_port);
+        let hash = (packet.src_ip + packet.src_port as u32 + packet.dst_ip + packet.dst_port as u32) % self.n_threads as u32;
+        /*
+        let result = self.senders[hash as usize].send(packet);
+        match result {
+            Err(err) => {
+                debug!("send  error  = {} {}", err, hash);
+                //panic!("send error");
+            }
+            Ok(_) => {
+                debug!("send ok");
+            }
+        }
+        */
     }
 }
 
@@ -30,8 +41,16 @@ pub fn init(conf: Arc<config::Configure>) -> Arc<Dispatcher> {
         let (tx, rx) = mpsc::channel();
 
         let handle = thread::spawn(move || {
-            for received in rx {
-                println!("recv packet");
+            loop {
+                let result = rx.recv();
+                match result {
+                    Err(err) => {
+                        panic!("recv  error  = {} {}", err, i);
+                    }
+                    Ok(_) => {
+                        debug!("recv ok");
+                    }
+                }
             }
         });
 
