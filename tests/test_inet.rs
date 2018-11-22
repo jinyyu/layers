@@ -1,15 +1,9 @@
-use std::cell::{Cell, RefCell};
-use std::rc::Rc;
-use std::collections::HashMap;
-
-
-struct Abc {
-    a : u8
-}
-
 #[test]
 fn test_cell() {
-    for i in 0..10 {
-        println!("hi number {} from the spawned thread!", i);
-    }
+    use std::num::Wrapping;
+
+    let a = Wrapping(std::u32::MAX);
+    let b = a + Wrapping(1);
+
+    println!("============================================{}", b.0);
 }

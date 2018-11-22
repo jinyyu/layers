@@ -46,10 +46,10 @@ extern "C" fn loop_callback(ctx: *mut c_char, packet: *const PacketHeader, bytes
 }
 
 //pfring
-#[link(name = "pcap", kind = "static")]
-#[link(name = "pfring", kind = "static")]
+//#[link(name = "pcap", kind = "static")]
+//#[link(name = "pfring", kind = "static")]
 
-//#[link(name = "pcap")]
+#[link(name = "pcap")]
 extern "C" {
     fn pcap_create(_device: *const c_char, _error: *mut c_char) -> *const c_char;
     fn pcap_set_snaplen(_handle: *const c_char, _snaplen: c_int) -> c_int;
