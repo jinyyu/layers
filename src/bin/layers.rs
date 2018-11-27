@@ -9,16 +9,14 @@ use std::sync::Arc;
 extern crate log;
 extern crate env_logger;
 extern crate argparse;
-extern crate libc;
-extern crate yaml_rust;
 extern crate layers;
 
 use layers::*;
 
 struct Main {
-    config: Arc<layer_config::Configure>,
-    dispatcher: Arc<layers::Dispatcher>,
-    daq: Arc<layer_daq::DAQ>,
+    config: Arc<config::Configure>,
+    dispatcher: Arc<dispatcher::Dispatcher>,
+    daq: Arc<daq::DAQ>,
 }
 
 impl Main {
@@ -48,7 +46,7 @@ fn main() {
         }).init();
 
 
-    let conf = layer_config::load(configure);
+    let conf = config::load(configure);
     setup_workspace(conf.clone());
 
     let daq = daq::init(conf.clone());

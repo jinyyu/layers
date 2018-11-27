@@ -5,7 +5,7 @@ use std::vec;
 use std::sync::mpsc;
 use packet::Packet;
 use std::num::Wrapping;
-use layer::*;
+use layer::TCPTracker;
 
 pub struct Dispatcher {
     n_threads: u8,
