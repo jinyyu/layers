@@ -5,6 +5,7 @@ use inet;
 use std::ptr;
 use std::mem;
 use layer;
+use libc::{c_char};
 
 pub struct Packet {
     pub flag: u8,
@@ -77,7 +78,7 @@ impl Packet {
         let array = unsafe { slice::from_raw_parts(data, size) };
 
         let mut packet = Packet {
-            flag: Packet::BAD_PACKET,
+            flag: 0,
             data: Vec::from(array),
             timestamp,
             ethernet: ptr::null(),
@@ -115,7 +116,7 @@ impl Packet {
                     self.decode_ipv4(offset, left);
                 }
                 _ => {
-                    trace!("ethernet type {}", EthernetType::ethernet_type_string(eth_type));
+                    debug!("ethernet type {}", EthernetType::ethernet_type_string(eth_type));
                 }
             }
         }
@@ -131,7 +132,7 @@ impl Packet {
         }
 
         unsafe {
-            let ip = self.data.as_ptr().offset(offset as isize) as *const IPV4Header;
+            let ip = self.data.as_ptr().offset(offset as isize) as *mut IPV4Header;
             self.ipv4 = ip;
             self.src_ip = (*ip).src;
             self.dst_ip = (*ip).dst;
@@ -160,7 +161,7 @@ impl Packet {
                 }
 
                 _ => {
-                    trace!("ip type {}", proto.to_string());
+                    debug!("ip type {}", proto.to_string());
                 }
             }
         }
@@ -169,7 +170,7 @@ impl Packet {
     fn decode_tcp(&mut self, offset: usize, left: usize) {
         assert!(self.flag & Packet::TCP > 0);
         unsafe {
-            let tcp = self.data.as_ptr().offset(offset as isize) as *const TCPHeader;
+            let tcp = self.data.as_ptr().offset(offset as isize) as *mut TCPHeader;
             self.tcp = tcp;
             self.src_port = inet::ntohs((*tcp).sport);
             self.dst_port = inet::ntohs((*tcp).dport);

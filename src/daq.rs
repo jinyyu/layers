@@ -34,7 +34,7 @@ extern "C" fn loop_callback(ctx: *mut c_char, packet: *const PacketHeader, bytes
         let tm = (*packet).ts.sec * 1000 * 1000 + (*packet).ts.usec;
         let p = Packet::new(tm, bytes as *const u8, (*packet).len as usize);
         if !p.valid() {
-            debug!("invalid packet");
+            debug!("invalid packet {:b}", p.flag);
         } else {
             let ctx = mem::transmute::<*mut c_char, *mut &Fn(Arc<Packet>)>(ctx);
             (*ctx)(p);
