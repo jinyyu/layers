@@ -1,3 +1,6 @@
+use std::sync::Arc;
+use packet::Packet;
+
 #[repr(C)]
 pub struct TCPHeader {
     //source port
@@ -26,4 +29,16 @@ pub struct TCPHeader {
 
     //urgent pointer
     pub urp: u16,
+}
+
+pub struct TCPStream {
+
+}
+
+
+impl TCPStream {
+    pub fn handle_packet(&mut self,  packet: Arc<Packet>) {
+
+        debug!("------------------------{}:{} ->{}:{}", packet.src_ip_str(), packet.src_port, packet.dst_ip_str(), packet.dst_port);
+    }
 }

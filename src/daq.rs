@@ -4,7 +4,6 @@ use std::ffi::CString;
 use libc::{c_int, c_uint};
 use packet::Packet;
 use std::mem;
-use layer;
 
 use config;
 

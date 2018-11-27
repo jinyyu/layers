@@ -1,10 +1,3 @@
-#[macro_use]
-extern crate log;
-extern crate env_logger;
-extern crate argparse;
-extern crate libc;
-extern crate yaml_rust;
-
 use std::io::Write;
 use env_logger::Builder;
 use std::env;
@@ -12,17 +5,20 @@ use std::path::Path;
 use std::fs;
 use std::sync::Arc;
 
-mod config;
-mod daq;
-mod packet;
-mod layer;
-mod inet;
-mod dispatcher;
+#[macro_use]
+extern crate log;
+extern crate env_logger;
+extern crate argparse;
+extern crate libc;
+extern crate yaml_rust;
+extern crate layers;
+
+use layers::*;
 
 struct Main {
-    config: Arc<config::Configure>,
-    dispatcher: Arc<dispatcher::Dispatcher>,
-    daq: Arc<daq::DAQ>,
+    config: Arc<layer_config::Configure>,
+    dispatcher: Arc<layers::Dispatcher>,
+    daq: Arc<layer_daq::DAQ>,
 }
 
 impl Main {
@@ -52,7 +48,7 @@ fn main() {
         }).init();
 
 
-    let conf = config::load(configure);
+    let conf = layer_config::load(configure);
     setup_workspace(conf.clone());
 
     let daq = daq::init(conf.clone());

@@ -4,15 +4,12 @@ use std::mem;
 
 const AF_INET: u32 = 2; //* IP protocol family
 
-#[allow(dead_code)]
-#[link(name = "layerscpp", kind = "static")]
 extern "C" {
     pub fn htonl(hostlong: u32) -> u32;
     pub fn htons(hostshort: u16) -> u16;
     pub fn ntohl(netlong: u32) -> u32;
     pub fn ntohs(netshort: u16) -> u16;
     fn inet_ntop(af: c_int, src: *const c_char, dst: *mut c_char, size: u32) -> *const c_char;
-    fn layers_checksum(buf: *const c_char, size: usize) -> u16;
 }
 
 pub fn ip_to_string(ip: u32) -> String {
@@ -25,11 +22,3 @@ pub fn ip_to_string(ip: u32) -> String {
     }
     return c_str.to_string_lossy().into_owned();
 }
-
-
-pub fn checksum(buf: *const c_char, size: usize) -> u16 {
-    unsafe {
-        return layers_checksum(buf, size);
-    }
-}
-
