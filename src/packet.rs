@@ -4,7 +4,7 @@ use layer::*;
 use inet;
 use std::ptr;
 use std::mem;
-use libc::{c_int, c_char};
+use layer;
 
 
 pub const FLAG_BAD_PACKET: u8 = (0x01 << 0);
@@ -110,14 +110,14 @@ impl Packet {
         offset += mem::size_of::<EthernetHeader>();
         left -= mem::size_of::<EthernetHeader>();
         unsafe {
-            let eth_type = inet::ntohs((*self.ethernet).eth_type);
+            let eth_type = EthernetType(inet::ntohs((*self.ethernet).eth_type));
             match eth_type {
-                ETHERNET_TYPE_IP => {
+                EthernetType::IP => {
                     self.flag |= FLAG_IPV4;
                     self.decode_ipv4(offset, left);
                 }
                 _ => {
-                    trace!("ethernet type {}", ethernet_type_string(eth_type));
+                    trace!("ethernet type {}", EthernetType::ethernet_type_string(eth_type));
                 }
             }
         }
@@ -153,14 +153,16 @@ impl Packet {
 
             self.ip_layer_len = left;
 
-            match (*ip).proto {
-                IPPROTO_TCP => {
+           let proto = layer::IPProto((*ip).proto);
+
+            match proto {
+                IPProto::TCP => {
                     self.flag |= FLAG_TCP;
                     self.decode_tcp(offset + header_len, left - header_len);
                 }
 
                 _ => {
-                    trace!("ip type {}", ip_type_string((*ip).proto));
+                    trace!("ip type {}", proto.to_string());
                 }
             }
 

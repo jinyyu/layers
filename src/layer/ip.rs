@@ -1,60 +1,62 @@
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct IPProto(pub u8);
 
-pub const IPPROTO_IP:u8 = 0;	   /* Dummy protocol for TCP.  */
-pub const IPPROTO_ICMP:u8 = 1;	   /* Internet Control Message Protocol.  */
-pub const IPPROTO_IGMP:u8 = 2;	   /* Internet Group Management Protocol. */
-pub const IPPROTO_IPIP:u8 = 4;	   /* IPIP tunnels (older KA9Q tunnels use 94).  */
-pub const IPPROTO_TCP:u8 =  6;	   /* Transmission Control Protocol.  */
-pub const IPPROTO_EGP:u8 =  8;	   /* Exterior Gateway Protocol.  */
-pub const IPPROTO_PUP:u8 = 12;	   /* PUP protocol.  */
-pub const IPPROTO_UDP:u8 = 17;	   /* User Datagram Protocol.  */
-pub const IPPROTO_IDP:u8 = 22;	   /* XNS IDP protocol.  */
-pub const IPPROTO_TP:u8 = 29;	   /* SO Transport Protocol Class 4.  */
-pub const IPPROTO_DCCP:u8 = 33;	   /* Datagram Congestion Control Protocol.  */
-pub const IPPROTO_IPV6:u8 = 41;     /* IPv6 header.  */
-pub const IPPROTO_RSVP:u8 = 46;	   /* Reservation Protocol.  */
-pub const IPPROTO_GRE :u8= 47;	   /* General Routing Encapsulation.  */
-pub const IPPROTO_ESP:u8 = 50;      /* encapsulating security payload.  */
-pub const IPPROTO_AH:u8 = 51;      /* authentication header.  */
-pub const IPPROTO_MTP:u8 = 92;	   /* Multicast Transport Protocol.  */
-pub const IPPROTO_BEETPH:u8 = 94;   /* IP option pseudo header for BEET.  */
-pub const IPPROTO_ENCAP:u8 = 98;	   /* Encapsulation Header.  */
-pub const IPPROTO_PIM :u8= 103;   /* Protocol Independent Multicast.  */
-pub const IPPROTO_COMP:u8 = 108;	   /* Compression Header Protocol.  */
-pub const IPPROTO_SCTP:u8 = 132;	   /* Stream Control Transmission Protocol.  */
-pub const IPPROTO_UDPLITE:u8 = 136; /* UDP-Lite protocol.  */
-pub const IPPROTO_RAW:u8 = 255;	   /* Raw IP packets.  */
+impl IPProto {
+    pub const IP: IPProto = IPProto(0);           /* Dummy protocol for TCP.  */
+    pub const ICMP: IPProto = IPProto(1);         /* Internet Control Message Protocol.  */
+    pub const IGMP: IPProto = IPProto(2);         /* Internet Group Management Protocol. */
+    pub const IPIP: IPProto = IPProto(4);         /* IPIP tunnels (older KA9Q tunnels use 94).  */
+    pub const TCP: IPProto = IPProto(6);          /* Transmission Control Protocol.  */
+    pub const EGP: IPProto = IPProto(8);          /* Exterior Gateway Protocol.  */
+    pub const PUP: IPProto = IPProto(12);         /* PUP protocol.  */
+    pub const UDP: IPProto = IPProto(17);         /* User Datagram Protocol.  */
+    pub const IDP: IPProto = IPProto(22);         /* XNS IDP protocol.  */
+    pub const TP: IPProto = IPProto(29);          /* SO Transport Protocol Class 4.  */
+    pub const DCCP: IPProto = IPProto(33);        /* Datagram Congestion Control Protocol.  */
+    pub const IPV6: IPProto = IPProto(41);        /* IPv6 header.  */
+    pub const RSVP: IPProto = IPProto(46);        /* Reservation Protocol.  */
+    pub const GRE: IPProto = IPProto(47);         /* General Routing Encapsulation.  */
+    pub const ESP: IPProto = IPProto(50);         /* encapsulating security payload.  */
+    pub const AH: IPProto = IPProto(51);          /* authentication header.  */
+    pub const MTP: IPProto = IPProto(92);         /* Multicast Transport Protocol.  */
+    pub const BEETPH: IPProto = IPProto(94);      /* IP option pseudo header for BEET.  */
+    pub const ENCAP: IPProto = IPProto(98);       /* Encapsulation Header.  */
+    pub const PIM: IPProto = IPProto(103);        /* Protocol Independent Multicast.  */
+    pub const COMP: IPProto = IPProto(108);       /* Compression Header Protocol.  */
+    pub const SCTP: IPProto = IPProto(132);       /* Stream Control Transmission Protocol.  */
+    pub const UDPLITE: IPProto = IPProto(136);    /* UDP-Lite protocol.  */
+    pub const RAW: IPProto = IPProto(255);        /* Raw IP packets.  */
 
-
-pub fn ip_type_string(value: u8) -> &'static str {
-    match value {
-        IPPROTO_IP => "IP",
-        IPPROTO_ICMP => "ICMP",
-        IPPROTO_IGMP => "IGMP",
-        IPPROTO_IPIP => "IPIP",
-        IPPROTO_TCP => "TCP",
-        IPPROTO_EGP => "EGP",
-        IPPROTO_PUP => "PUP",
-        IPPROTO_UDP => "UDP",
-        IPPROTO_IDP => "IDP",
-        IPPROTO_TP => "TP",
-        IPPROTO_DCCP => "DCCP",
-        IPPROTO_IPV6 => "IPV6",
-        IPPROTO_RSVP => "RSVP",
-        IPPROTO_GRE => "GRE",
-        IPPROTO_ESP => "ESP",
-        IPPROTO_AH => "AH",
-        IPPROTO_MTP => "MTP",
-        IPPROTO_BEETPH => "BEETPH",
-        IPPROTO_ENCAP => "ENCAP",
-        IPPROTO_PIM => "PIM ",
-        IPPROTO_COMP => "COMP",
-        IPPROTO_SCTP => "SCTP",
-        IPPROTO_UDPLITE => "UDPLITE",
-        IPPROTO_RAW => "RAW",
-        _ => "Unknown"
+    pub fn to_string(self) -> &'static str {
+        match self {
+            IPProto::IP => "IP",
+            IPProto::ICMP => "ICMP",
+            IPProto::IGMP => "IGMP",
+            IPProto::IPIP => "IPIP",
+            IPProto::TCP => "TCP",
+            IPProto::EGP => "EGP",
+            IPProto::PUP => "PUP",
+            IPProto::UDP => "UDP",
+            IPProto::IDP => "IDP",
+            IPProto::TP => "TP",
+            IPProto::DCCP => "DCCP",
+            IPProto::IPV6 => "IPV6",
+            IPProto::RSVP => "RSVP",
+            IPProto::GRE => "GRE",
+            IPProto::ESP => "ESP",
+            IPProto::AH => "AH",
+            IPProto::MTP => "MTP",
+            IPProto::BEETPH => "BEETPH",
+            IPProto::ENCAP => "ENCAP",
+            IPProto::PIM => "PIM ",
+            IPProto::COMP => "COMP",
+            IPProto::SCTP => "SCTP",
+            IPProto::UDPLITE => "UDPLITE",
+            IPProto::RAW => "RAW",
+            _ => "Unknown"
+        }
     }
 }
-
 
 #[repr(C)]
 pub struct IPV4Header {
