@@ -6,7 +6,6 @@ use std::sync::mpsc;
 use packet::Packet;
 use std::num::Wrapping;
 use layer::*;
-use packet;
 
 pub struct Dispatcher {
     n_threads: u8,
@@ -38,7 +37,7 @@ pub fn init(conf: Arc<config::Configure>) -> Arc<Dispatcher> {
 
                 let packet = rx.recv().expect("channel receive error");
 
-                if packet.flag & packet::FLAG_TCP > 0 {
+                if packet.flag & Packet::TCP > 0 {
                     tcp_tracker.get_mut().on_packet(packet);
                 }
 

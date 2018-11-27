@@ -6,22 +6,6 @@ use std::ptr;
 use std::mem;
 use layer;
 
-
-pub const FLAG_BAD_PACKET: u8 = (0x01 << 0);
-pub const FLAG_IPV4: u8 = (0x01 << 1);
-pub const FLAG_IPV6: u8 = (0x01 << 2);
-pub const FLAG_ARP: u8 = (0x01 << 3);
-pub const FLAG_ICMP: u8 = (0x01 << 4);
-pub const FLAG_TCP: u8 = (0x01 << 5);
-pub const FLAG_UDP: u8 = (0x01 << 6);
-
-/* now combined detections */
-pub const FLAG_IPV4TCP: u8 = FLAG_IPV4 | FLAG_TCP;
-pub const FLAG_IPV6TCP: u8 = FLAG_IPV6 | FLAG_TCP;
-pub const FLAG_IPV4UDP: u8 = FLAG_IPV4 | FLAG_UDP;
-pub const FLAG_IPV6UDP: u8 = FLAG_IPV6 | FLAG_UDP;
-
-
 pub struct Packet {
     pub flag: u8,
     pub timestamp: u64,
@@ -48,8 +32,22 @@ unsafe impl Sync for Packet {}
 
 
 impl Packet {
+    pub const BAD_PACKET: u8 = (0x01 << 0);
+    pub const IPV4: u8 = (0x01 << 1);
+    pub const IPV6: u8 = (0x01 << 2);
+    pub const ARP: u8 = (0x01 << 3);
+    pub const ICMP: u8 = (0x01 << 4);
+    pub const TCP: u8 = (0x01 << 5);
+    pub const UDP: u8 = (0x01 << 6);
+    /* now combined detections */
+    pub const IPV4TCP: u8 = Packet::IPV4 | Packet::TCP;
+    pub const IPV6TCP: u8 = Packet::IPV6 | Packet::TCP;
+    pub const IPV4UDP: u8 = Packet::IPV4 | Packet::UDP;
+    pub const IPV6UDP: u8 = Packet::IPV6 | Packet::UDP;
+
+
     pub fn valid(&self) -> bool {
-        return self.flag & FLAG_BAD_PACKET == 0;
+        return self.flag & Packet::BAD_PACKET == 0;
     }
 
     #[inline]
@@ -79,7 +77,7 @@ impl Packet {
         let array = unsafe { slice::from_raw_parts(data, size) };
 
         let mut packet = Packet {
-            flag: 0,
+            flag: Packet::BAD_PACKET,
             data: Vec::from(array),
             timestamp,
             ethernet: ptr::null(),
@@ -94,7 +92,7 @@ impl Packet {
         };
         if size < mem::size_of::<EthernetHeader>() {
             debug!("invalid packet, size = {}", size);
-            packet.flag |= FLAG_BAD_PACKET;
+            packet.flag |= Packet::BAD_PACKET;
         } else {
             packet.decode_ethernet();
         }
@@ -113,7 +111,7 @@ impl Packet {
             let eth_type = EthernetType(inet::ntohs((*self.ethernet).eth_type));
             match eth_type {
                 EthernetType::IP => {
-                    self.flag |= FLAG_IPV4;
+                    self.flag |= Packet::IPV4;
                     self.decode_ipv4(offset, left);
                 }
                 _ => {
@@ -125,10 +123,10 @@ impl Packet {
 
 
     fn decode_ipv4(&mut self, offset: usize, left: usize) {
-        assert!(self.flag & FLAG_IPV4 > 0);
+        assert!(self.flag & Packet::IPV4 > 0);
 
         if left < mem::size_of::<IPV4Header>() {
-            self.flag |= FLAG_BAD_PACKET;
+            self.flag |= Packet::BAD_PACKET;
             return;
         }
 
@@ -140,24 +138,24 @@ impl Packet {
 
             if (*ip).version() != 4 {
                 debug!("bad version {}", (*self.ipv4).version());
-                self.flag |= FLAG_BAD_PACKET;
+                self.flag |= Packet::BAD_PACKET;
                 return;
             }
             let header_len = (*ip).header_len() as usize;
 
             if left < header_len {
                 debug!("bad packet {}, {}", left, header_len);
-                self.flag |= FLAG_BAD_PACKET;
+                self.flag |= Packet::BAD_PACKET;
                 return;
             }
 
             self.ip_layer_len = left;
 
-           let proto = layer::IPProto((*ip).proto);
+            let proto = layer::IPProto((*ip).proto);
 
             match proto {
                 IPProto::TCP => {
-                    self.flag |= FLAG_TCP;
+                    self.flag |= Packet::TCP;
                     self.decode_tcp(offset + header_len, left - header_len);
                 }
 
@@ -165,12 +163,11 @@ impl Packet {
                     trace!("ip type {}", proto.to_string());
                 }
             }
-
         }
     }
 
     fn decode_tcp(&mut self, offset: usize, left: usize) {
-        assert!(self.flag & FLAG_TCP > 0);
+        assert!(self.flag & Packet::TCP > 0);
         unsafe {
             let tcp = self.data.as_ptr().offset(offset as isize) as *const TCPHeader;
             self.tcp = tcp;
