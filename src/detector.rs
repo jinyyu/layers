@@ -3,9 +3,17 @@ use std::ptr;
 
 #[link(name = "ndpi")]
 extern "C" {
-    fn ndpi_init_detection_module() -> *const c_char;
     fn ndpi_exit_detection_module(handle: *const c_char);
 }
+
+
+#[link(name = "layerscpp")]
+extern "C" {
+    fn alloc_ndpi() -> *const c_char;
+}
+
+
+
 
 
 pub struct Detector {
@@ -15,12 +23,13 @@ pub struct Detector {
 impl Detector {
     pub fn new() -> Detector {
         unsafe {
+            let handle = alloc_ndpi();
+
             Detector {
-                handle: ndpi_init_detection_module(),
+                handle,
             }
         }
     }
-
 
     pub fn drop(&mut self) {
         debug!("detector cleanup");
