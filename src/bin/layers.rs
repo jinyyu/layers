@@ -52,7 +52,7 @@ fn main() {
     let daq = daq::init(conf.clone());
     let dispatcher = dispatcher::init(conf.clone());
 
-    let mut app = Main {
+    let app = Main {
         config: conf.clone(),
         dispatcher: dispatcher.clone(),
         daq: daq.clone(),

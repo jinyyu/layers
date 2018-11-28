@@ -1,28 +1,11 @@
 #[test]
-
-use std::collections::HashMap;
-extern crate layers;
-
-
 fn test_cell() {
+    use std::cell::RefCell;
 
+    let c = RefCell::new(5);
 
-    ///
-    let mut map: HashMap<&str, String> = HashMap::new();
+    *c.borrow_mut() = 7;
 
-     map.entry("poneyland").or_insert_with(|| {
-         let s = "hoho".to_string();
-         println!("9-----------------------------------------------------hihihihihihihihi");
-         return s;
-     });
+    assert_eq!(*c.borrow(), 7);
 
-
-    map.entry("poneyland").or_insert_with(|| ->String{
-        let s = "hoho".to_string();
-        println!("10-----------------------------------------------------hihihihihihihihi");
-        return s;
-    });
-
-
-    assert_eq!(map["poneyland"], "hoho".to_string());
 }

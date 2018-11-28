@@ -5,7 +5,6 @@ use inet;
 use std::ptr;
 use std::mem;
 use layer;
-use libc::{c_char};
 
 pub struct Packet {
     pub flag: u8,
