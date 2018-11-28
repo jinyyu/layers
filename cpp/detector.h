@@ -1,16 +1,23 @@
 #ifndef LAYERS_DISTRIBUTION_DETECTOR_H
 #define LAYERS_DISTRIBUTION_DETECTOR_H
-
-#include <elf.h>
 #ifdef __cplusplus
 extern "C"
 {
 #endif
 
 
-void * alloc_ndpi();
+void * init_ndpi_ctx();
 
-uint32_t ndpi_flow_struct_size();
+void free_ndpi_ctx(void* ctx);
+
+void* new_ndpi_flow();
+
+void free_ndpi_flow(void* flow);
+
+void* new_ndpi_flow_id();
+
+void free_ndpi_flow_id(void* id);
+
 
 #ifdef __cplusplus
 }
