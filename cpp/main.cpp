@@ -1,6 +1,7 @@
-#include <stdint.h>
-#include <stdio.h>
+#include <ndpi/ndpi_api.h>
 
 int main(int argc, char* argv[]){
-    printf("%d\n", sizeof(unsigned));
+
+    ndpi_init_detection_module()
+
 }

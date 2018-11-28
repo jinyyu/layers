@@ -4,7 +4,7 @@ use std::thread;
 use std::sync::mpsc;
 use packet::Packet;
 use std::num::Wrapping;
-use layer::TCPTracker;
+use tcp_tracker::TCPTracker;
 
 pub struct Dispatcher {
     n_threads: u8,
@@ -37,7 +37,7 @@ pub fn init(conf: Arc<config::Configure>) -> Arc<Dispatcher> {
                 let packet = rx.recv().expect("channel receive error");
 
                 if packet.flag & Packet::TCP > 0 {
-                    TCPTracker::on_packet(&mut tcp_tracker, packet.clone()); }
+                    TCPTracker::on_packet(&mut tcp_tracker, packet.clone())}
             }
         };
 

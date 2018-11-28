@@ -4,9 +4,11 @@ use packet::Packet;
 use layer::ip::StreamID;
 use std::collections::HashMap;
 use layer::tcp::TCPStream;
+use detector::Detector;
 
 pub struct TCPTracker {
-    streams: HashMap<StreamID, TCPStream>
+    streams: HashMap<StreamID, TCPStream>,
+    detector: Detector,
 }
 
 
@@ -14,6 +16,7 @@ impl TCPTracker {
     pub fn new() -> TCPTracker {
         TCPTracker {
             streams: HashMap::new(),
+            detector: Detector::new(),
         }
     }
 
@@ -32,10 +35,8 @@ impl TCPTracker {
                 return stream;
             });
 
-            stream.handle_packet(packet);
+            stream.handle_packet(packet, &self.detector);
             remove = stream.is_finished();
-
-
         }
         if remove {
             self.streams.remove(&id);

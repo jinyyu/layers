@@ -1,7 +1,6 @@
-use std::os::raw::c_char;
 use std::sync::Arc;
 use std::ffi::CString;
-use libc::{c_int, c_uint};
+use libc::{c_int, c_uint, c_char};
 use packet::Packet;
 use std::mem;
 
