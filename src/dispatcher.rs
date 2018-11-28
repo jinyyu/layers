@@ -1,13 +1,10 @@
 use config;
 use std::sync::Arc;
 use std::thread;
-use std::rc::Rc;
-use std::cell::Cell;
 use std::sync::mpsc;
 use packet::Packet;
 use std::num::Wrapping;
 use layer::TCPTracker;
-use std::cell::RefCell;
 
 pub struct Dispatcher {
     n_threads: u8,
@@ -34,14 +31,13 @@ pub fn init(conf: Arc<config::Configure>) -> Arc<Dispatcher> {
         let (tx, rx) = mpsc::channel::<Arc<Packet>>();
 
         let cb = move || {
-            let tcp_tracker = Rc::new(RefCell::new(TCPTracker::new()));
+            let mut tcp_tracker = Box::new(TCPTracker::new());
 
             loop {
                 let packet = rx.recv().expect("channel receive error");
 
                 if packet.flag & Packet::TCP > 0 {
-                    TCPTracker::on_packet(tcp_tracker.clone(), packet);
-                }
+                    TCPTracker::on_packet(&mut tcp_tracker, packet.clone()); }
             }
         };
 

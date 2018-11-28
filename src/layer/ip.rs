@@ -1,4 +1,5 @@
 use std::cmp;
+use inet;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct IPProto(pub u8);
@@ -102,6 +103,13 @@ impl IPV4Header {
     #[inline]
     pub fn header_len(&self) -> u8 {
         return (self.version_length & 0x0F) << 2;
+    }
+
+    #[inline]
+    pub fn total_length(&self) ->u16 {
+        unsafe {
+            inet::ntohs(self.len)
+        }
     }
 }
 
