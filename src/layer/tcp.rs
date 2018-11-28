@@ -78,7 +78,7 @@ pub struct TCPStream {
 
 
 impl TCPStream {
-    const MAX_DETECT_TIMES: u8 = 10;
+    const MAX_DETECT_TIMES: u8 = 3;
 
     pub fn new(packet: Arc<Packet>) -> TCPStream {
         let mut stream = TCPStream {
@@ -114,10 +114,11 @@ impl TCPStream {
         }
 
         match self.state {
-            DetectError => {
-                debug!("unknown protocol");
+            State::DetectError => {
+                debug!("----------------------------------------------------------unknown protocol");
             }
-            DetectTrying => {
+            State::DetectTrying => {
+                debug!("---------------------------------------------------!!!!!!!!!!!!!!!!--detect");
                 if self.flow == ptr::null() {
                     unsafe {
                         self.flow = detector::new_ndpi_flow();
@@ -127,8 +128,8 @@ impl TCPStream {
                 }
                 self.detect_protocol(packet.clone(), detector);
             }
-            DetectSuccess => {
-                debug!("detect success");
+            State::DetectSuccess => {
+                debug!("-----------------------------------------------------detect success");
             }
         }
 
@@ -165,9 +166,17 @@ impl TCPStream {
         }
 
         if self.proto.success() {
-            panic!("detect success");
+            debug!("yes                                           detect success");
             self.state = State::DetectSuccess;
+        } else {
+            self.detect_times += 1;
+
+            if self.detect_times > TCPStream::MAX_DETECT_TIMES {
+                panic!("detect error ")
+            }
         }
+
+
     }
 }
 
