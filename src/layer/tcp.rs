@@ -1,6 +1,9 @@
 use std::sync::Arc;
 use packet::Packet;
-use detector::Detector;
+use detector::{Detector, ndpi_free_flow};
+use libc::c_char;
+use std::ptr;
+
 
 #[repr(C)]
 pub struct TCPHeader {
@@ -46,6 +49,7 @@ impl TCPHeader {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
 enum State {
     DetectTrying,
     DetectSuccess,
@@ -56,6 +60,9 @@ pub struct TCPStream {
     finished: bool,
     state: State,
     times: u8,
+
+    src_flow: *const c_char,
+    dst_flow: *const c_char,
 }
 
 
@@ -63,20 +70,21 @@ impl TCPStream {
     const MAX_DETECT_TIMES: u8 = 10;
 
     pub fn new(packet: Arc<Packet>) -> TCPStream {
-        let state;
-        if unsafe { (*packet.tcp).flags | TCPHeader::SYN > 0 } {
+        let mut stream = TCPStream {
+            finished: false,
+            state: State::DetectError,
+            times: 0,
+            src_flow: ptr::null(),
+            dst_flow: ptr::null(),
+        };
+
+        if unsafe { (*packet.tcp).flags & TCPHeader::SYN > 0 } {
             debug!("syn stream");
-            state = State::DetectTrying;
-        } else {
-            debug!("not syn stream");
-            state = State::DetectError;
+            stream.state = State::DetectTrying;
         }
 
-        TCPStream {
-            finished: false,
-            state,
-            times: 0,
-        }
+
+        return stream;
     }
 
     pub fn handle_packet(&mut self, packet: Arc<Packet>, detector: &Detector) {
@@ -86,10 +94,50 @@ impl TCPStream {
         unsafe {
             debug!("len = {} {}", payload.len(), (*packet.tcp).header_len());
         }
+
+        match self.state {
+            DetectError => {
+                debug!("unknown protocol");
+            }
+            DetectTrying => {
+                if self.src_flow == ptr::null() {
+                    self.src_flow = detector.new_ndpi_flow();
+                    self.dst_flow = detector.new_ndpi_flow();
+                }
+                self.detect_protocol(packet.clone());
+            }
+            DetectSuccess => {
+                debug!("detect success");
+            }
+        }
+
+        unsafe {
+            if (*packet.tcp).flags & (TCPHeader::FIN | TCPHeader::RST) > 0 {
+                debug!("finished");
+                self.finished = true
+            }
+        }
     }
 
     #[inline]
     pub fn is_finished(&self) -> bool {
         self.finished
+    }
+
+
+    fn detect_protocol(&mut self, packet: Arc<Packet>) {
+
+    }
+}
+
+impl Drop for TCPStream {
+    fn drop(&mut self) {
+        debug!("stream clean up");
+        unsafe {
+            if self.src_flow != ptr::null() {
+                ndpi_free_flow(self.src_flow);
+                ndpi_free_flow(self.dst_flow);
+            }
+        }
     }
 }

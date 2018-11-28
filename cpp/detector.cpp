@@ -9,3 +9,8 @@ void* alloc_ndpi()
     ndpi_set_protocol_detection_bitmask2(handle, &all);
     return (void*)handle;
 }
+
+uint32_t ndpi_flow_struct_size()
+{
+    return sizeof(struct ndpi_flow_struct);
+}

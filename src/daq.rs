@@ -68,6 +68,7 @@ impl DAQ {
 
 impl Drop for DAQ {
     fn drop(&mut self) {
+        debug!("daq cleanup");
         unsafe {
             pcap_close(self.handle);
         }
