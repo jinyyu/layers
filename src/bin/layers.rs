@@ -14,13 +14,40 @@ extern crate layers;
 use layers::*;
 
 struct Main {
-    config: Arc<config::Configure>,
     dispatcher: Arc<dispatcher::Dispatcher>,
     daq: Arc<daq::DAQ>,
 }
 
 impl Main {
-    pub fn run(&self) {
+    fn new(conf: Arc<config::Configure>) -> Main {
+        let daq = daq::init(conf.clone());
+        let dispatcher = dispatcher::init(conf.clone());
+
+        Main {
+            dispatcher,
+            daq,
+        }
+    }
+
+    fn setup_workspace(conf: Arc<config::Configure>) {
+        let path = Path::new(&*conf.workspace);
+        let exists = Path::exists(path);
+        if !exists {
+            let result = fs::create_dir(path);
+            match result {
+                Ok(_) => {
+                    debug!("create dir success");
+                }
+                Err(err) => {
+                    panic!("create workspace dir error {}", err)
+                }
+            }
+        }
+        env::set_current_dir(path).unwrap();
+        debug!("set up ok");
+    }
+
+    fn run(&self) {
         let dispatcher = self.dispatcher.clone();
 
         self.daq.run(&move |packet: Arc<packet::Packet>| {
@@ -47,33 +74,8 @@ fn main() {
 
 
     let conf = config::load(configure);
-    setup_workspace(conf.clone());
+    Main::setup_workspace(conf.clone());
 
-    let daq = daq::init(conf.clone());
-    let dispatcher = dispatcher::init(conf.clone());
-
-    let app = Main {
-        config: conf.clone(),
-        dispatcher: dispatcher.clone(),
-        daq: daq.clone(),
-    };
+    let app = Main::new(conf);
     app.run();
-}
-
-fn setup_workspace(conf: Arc<config::Configure>) {
-    let path = Path::new(&*conf.workspace);
-    let exists = Path::exists(path);
-    if !exists {
-        let result = fs::create_dir(path);
-        match result {
-            Ok(_) => {
-                debug!("create dir success");
-            }
-            Err(err) => {
-                panic!("create workspace dir error {}", err)
-            }
-        }
-    }
-    env::set_current_dir(path).unwrap();
-    debug!("set up ok");
 }

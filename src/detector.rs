@@ -2,6 +2,8 @@ use libc::c_char;
 use libc;
 use std::ptr;
 use layer::TCPHeader;
+use std::ffi::CStr;
+use std::mem;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -49,6 +51,14 @@ extern "C" {
                                           dst_ip: u16,
                                           dst_port: u16) -> Proto;
 
+
+
+    fn ndpi_protocol2name(ctx: *const c_char,
+                          proto: Proto,
+                          buf: *mut c_char,
+                          len: u32) -> *const c_char;
+
+
     pub fn init_ndpi_ctx() -> *const c_char;
     pub fn free_ndpi_ctx(ctx: *const c_char);
 
@@ -88,7 +98,20 @@ impl Detector {
         }
     }
 
-    pub fn drop(&mut self) {
+    pub fn protocol_name(&self, proto: &Proto) -> String {
+        let mut array: [u8; 16] = [0; 16];
+        let c_str;
+        unsafe {
+            ndpi_protocol2name(self.ctx, *proto, array.as_mut_ptr() as *mut i8, 16);
+            c_str = CStr::from_bytes_with_nul_unchecked(&array);
+        }
+        return c_str.to_string_lossy().into_owned();
+    }
+}
+
+
+impl Drop for Detector {
+    fn drop(&mut self) {
         debug!("detector cleanup");
         unsafe {
             free_ndpi_ctx(self.ctx);

@@ -32,12 +32,11 @@ extern "C" fn loop_callback(ctx: *mut c_char, packet: *const PacketHeader, bytes
         let tm = (*packet).ts.sec * 1000 * 1000 + (*packet).ts.usec;
         let p = Packet::new(tm, bytes as *const u8, (*packet).len as usize);
         if !p.valid() {
-            debug!("invalid packet {:b}", p.flag);
+            debug!("invalid packet 0b{:b}", p.flag);
         } else {
             let ctx = mem::transmute::<*mut c_char, *mut &Fn(Arc<Packet>)>(ctx);
             (*ctx)(p);
         }
-
     };
 }
 
@@ -60,7 +59,8 @@ impl DAQ {
     pub fn run(&self, cb: &Fn(Arc<Packet>)) {
         let mut callback = Box::new(cb);
         info!("pcap start");
-        unsafe { pcap_loop(self.handle, -1, loop_callback, mem::transmute::<*mut &Fn(Arc<Packet>), *mut c_char>(&mut *callback));
+        unsafe {
+            pcap_loop(self.handle, -1, loop_callback, mem::transmute::<*mut &Fn(Arc<Packet>), *mut c_char>(&mut *callback));
         }
         info!("pcap_loop exit ");
     }
@@ -75,7 +75,7 @@ impl Drop for DAQ {
     }
 }
 
-pub fn init(conf: Arc<config::Configure>) -> Arc<DAQ>{
+pub fn init(conf: Arc<config::Configure>) -> Arc<DAQ> {
     let handle = open_device(&conf.interface);
     match handle {
         Some(h) => {
@@ -93,9 +93,9 @@ fn open_device(device: &str) -> Option<*const c_char> {
     let mut buff: Vec<c_char> = Vec::with_capacity(256);
     let buffer = buff.as_mut_ptr();
     unsafe {
-        let handle = pcap_create(device.as_ptr(), buffer);
+        let handle = pcap_create(device.as_ptr() as *const c_char, buffer);
         if handle.is_null() {
-            error!("pcap_create error {}", CString::from_raw(buffer).to_str().unwrap());
+            error!("pcap_create error {}", CString::from_raw(buffer as *mut c_char).to_str().unwrap());
             return None;
         }
 

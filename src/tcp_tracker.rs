@@ -8,7 +8,7 @@ use detector::Detector;
 
 pub struct TCPTracker {
     streams: HashMap<StreamID, TCPStream>,
-    detector: Detector,
+    detector: Rc<Detector>,
 }
 
 
@@ -16,26 +16,26 @@ impl TCPTracker {
     pub fn new() -> TCPTracker {
         TCPTracker {
             streams: HashMap::new(),
-            detector: Detector::new(),
+            detector: Rc::new(Detector::new()),
         }
     }
 
-    pub fn on_packet(&mut self, packet: Arc<Packet>) {
+    pub fn on_packet(&mut self, packet: &Arc<Packet>) {
         let id = StreamID::new(packet.src_ip, packet.dst_ip, packet.src_port, packet.dst_port);
 
         let mut remove = false;
 
         let tm = packet.timestamp;
         {
-            let p = packet.clone();
+            let pkt = packet.clone();
+            let detector = self.detector.clone();
             let stream = self.streams.entry(id).or_insert_with(|| {
-                debug!("new tcp stream {}:{} ->{}:{}", p.src_ip_str(), p.src_port, p.dst_ip_str(), p.dst_port);
-
-                let stream = TCPStream::new(p);
+                debug!("new tcp stream {}:{} ->{}:{}", pkt.src_ip_str(), pkt.src_port, pkt.dst_ip_str(), pkt.dst_port);
+                let stream = TCPStream::new(pkt, detector);
                 return stream;
             });
 
-            stream.handle_packet(packet, &self.detector);
+            stream.handle_packet(packet);
             remove = stream.is_finished();
         }
         if remove {

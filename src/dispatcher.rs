@@ -37,7 +37,8 @@ pub fn init(conf: Arc<config::Configure>) -> Arc<Dispatcher> {
                 let packet = rx.recv().expect("channel receive error");
 
                 if packet.flag & Packet::TCP > 0 {
-                    TCPTracker::on_packet(&mut tcp_tracker, packet.clone())}
+                    trace!("{}:{} ->{}:{}", packet.src_ip_str(), packet.src_port, packet.dst_ip_str(), packet.dst_port);
+                    TCPTracker::on_packet(&mut tcp_tracker, &packet)}
             }
         };
 

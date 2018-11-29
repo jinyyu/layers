@@ -192,8 +192,8 @@ impl Packet {
 
 
             let header_len = (*self.tcp).header_len() as usize;
-            if offset < header_len {
-                debug!("bad tcp packet {} {}", offset, header_len);
+            if left < header_len {
+                debug!("bad tcp packet {} {}", left, header_len);
                 self.flag |= Packet::BAD_PACKET;
                 return;
             }
