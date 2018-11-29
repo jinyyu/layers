@@ -153,10 +153,14 @@ impl TCPStream {
         self.finished
     }
 
+    #[inline]
+    fn is_client_flow(&self, packet: &Arc<Packet>) -> bool {
+        return packet.src_port == self.client_port && packet.src_ip == self.client;
+    }
+
 
     fn detect_protocol(&mut self, packet: &Arc<Packet>) {
-        let client_flow = (packet.src_ip == self.client && packet.src_port == packet.src_port);
-        if client_flow {
+        if self.is_client_flow(packet) {
             self.proto = self.detector.detect(self.flow,
                                               packet.ipv4 as *const c_char,
                                               packet.ip_layer_len as u16,
@@ -186,7 +190,6 @@ impl TCPStream {
     }
 
 
-
     fn on_detect_success(&mut self) {
         debug!("proto name = {}", self.detector.protocol_name(&self.proto));
         self.client_flow = Some(TcpFlow::new());
@@ -207,16 +210,14 @@ impl TCPStream {
 
     fn dispatch_packet(&mut self, packet: &Arc<Packet>) {
         let flow;
-        if packet.src_port == self.client_port && packet.src_ip == self.client {
+        if self.is_client_flow(packet) {
             flow = &mut self.client_flow;
-            //return;
+            return;
         } else {
             assert_eq!(packet.src_ip, self.server);
             assert_eq!(packet.src_port, self.server_port);
             flow = &mut self.server_flow;
-            //return;
         }
-        return;
         match *flow {
             Some(ref mut flow) => {
                 flow.handle_packet(packet);
@@ -256,9 +257,8 @@ impl TcpFlow {
     fn handle_packet(&mut self, packet: &Arc<Packet>) {
         if packet.tcp_payload().len() == 0 {
             debug!("----");
-
         }
-        let seq = unsafe { inet::ntohl((*packet.tcp).ack) };
+        let seq = unsafe { inet::ntohl((*packet.tcp).seq) };
         debug!("seq = {}, data len = {}", seq, packet.tcp_payload().len());
     }
 }
