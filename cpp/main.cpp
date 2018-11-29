@@ -1,6 +1,8 @@
-#include <stdint.h>
+#include <ndpi/ndpi_api.h>
 #include <stdio.h>
 
+
 int main(int argc, char* argv[]){
-    printf("%d\n", sizeof(unsigned));
+    fprintf(stderr, "%d\n", sizeof(ndpi_protocol));
+    ndpi_guess_undetected_protocol
 }

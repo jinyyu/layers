@@ -1,9 +1,11 @@
 #[test]
 fn test_cell() {
-    use std::num::Wrapping;
+    use std::cell::RefCell;
 
-    let a = Wrapping(std::u32::MAX);
-    let b = a + Wrapping(1);
+    let c = RefCell::new(5);
 
-    println!("============================================{}", b.0);
+    *c.borrow_mut() = 7;
+
+    assert_eq!(*c.borrow(), 7);
+
 }

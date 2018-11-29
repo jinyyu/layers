@@ -1,3 +1,6 @@
+use std::cmp;
+use inet;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct IPProto(pub u8);
 
@@ -100,5 +103,31 @@ impl IPV4Header {
     #[inline]
     pub fn header_len(&self) -> u8 {
         return (self.version_length & 0x0F) << 2;
+    }
+
+    #[inline]
+    pub fn total_length(&self) ->u16 {
+        unsafe {
+            inet::ntohs(self.len)
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct StreamID {
+    min_ip: u32,
+    max_ip: u32,
+    min_port: u16,
+    max_port: u16,
+}
+
+impl StreamID {
+    pub fn new(client_ip: u32, server_ip: u32, client_port: u16, server_port: u16) -> StreamID {
+        StreamID {
+            min_ip: cmp::min(client_ip, server_ip),
+            max_ip: cmp::max(client_ip, server_ip),
+            min_port: cmp::min(client_port, server_port),
+            max_port: cmp::max(client_port, server_port),
+        }
     }
 }

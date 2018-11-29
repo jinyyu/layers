@@ -6,7 +6,7 @@
 extern "C" {
 #endif
 
-uint16_t layers_checksum(const char *buf, unsigned size);
+uint16_t layers_checksum(const char* buf, unsigned size);
 
 #ifdef __cplusplus
 }

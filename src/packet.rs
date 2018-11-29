@@ -5,7 +5,6 @@ use inet;
 use std::ptr;
 use std::mem;
 use layer;
-use libc::{c_char};
 
 pub struct Packet {
     pub flag: u8,
@@ -25,6 +24,10 @@ pub struct Packet {
     pub ip_layer_len: usize,
 
     pub tcp: *const TCPHeader,
+
+    _payload: *const u8,
+    _payload_len: usize,
+
 }
 
 unsafe impl Send for Packet {}
@@ -41,6 +44,8 @@ impl Packet {
     pub const TCP: u8 = (0x01 << 5);
     pub const UDP: u8 = (0x01 << 6);
     /* now combined detections */
+
+    pub const TCP_OR_UDP: u8 = Packet::IPV4 | Packet::UDP;
     pub const IPV4TCP: u8 = Packet::IPV4 | Packet::TCP;
     pub const IPV6TCP: u8 = Packet::IPV6 | Packet::TCP;
     pub const IPV4UDP: u8 = Packet::IPV4 | Packet::UDP;
@@ -73,6 +78,13 @@ impl Packet {
         return inet::ip_to_string(self.dst_ip);
     }
 
+    pub fn tcp_payload(&self) -> &[u8] {
+        assert!(self.flag & Packet::TCP_OR_UDP > 0);
+        unsafe {
+            slice::from_raw_parts(self._payload, self._payload_len)
+        }
+    }
+
 
     pub fn new(timestamp: u64, data: *const u8, size: usize) -> Arc<Packet> {
         let array = unsafe { slice::from_raw_parts(data, size) };
@@ -90,6 +102,9 @@ impl Packet {
             dst_port: 0,
             src_ip: 0,
             dst_ip: 0,
+
+            _payload: ptr::null(),
+            _payload_len: 0,
         };
         if size < mem::size_of::<EthernetHeader>() {
             debug!("invalid packet, size = {}", size);
@@ -143,21 +158,21 @@ impl Packet {
                 return;
             }
             let header_len = (*ip).header_len() as usize;
+            let ip_layer_len = (*ip).total_length() as usize;
+            self.ip_layer_len = ip_layer_len;
 
-            if left < header_len {
-                debug!("bad packet {}, {}", left, header_len);
+            if left < self.ip_layer_len || self.ip_layer_len < header_len {
+                debug!("bad packet {}, {}, {}", left, self.ip_layer_len, header_len);
                 self.flag |= Packet::BAD_PACKET;
                 return;
             }
-
-            self.ip_layer_len = left;
 
             let proto = layer::IPProto((*ip).proto);
 
             match proto {
                 IPProto::TCP => {
                     self.flag |= Packet::TCP;
-                    self.decode_tcp(offset + header_len, left - header_len);
+                    self.decode_tcp(offset + header_len, ip_layer_len - header_len);
                 }
 
                 _ => {
@@ -174,6 +189,18 @@ impl Packet {
             self.tcp = tcp;
             self.src_port = inet::ntohs((*tcp).sport);
             self.dst_port = inet::ntohs((*tcp).dport);
+
+
+            let header_len = (*self.tcp).header_len() as usize;
+            if left < header_len {
+                debug!("bad tcp packet {} {}", left, header_len);
+                self.flag |= Packet::BAD_PACKET;
+                return;
+            }
+
+            self._payload_len = left - header_len;
+            let offset = offset + header_len;
+            self._payload = self.data.as_ptr().offset(offset as isize) as *const u8;
         }
     }
 }
