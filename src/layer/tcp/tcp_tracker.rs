@@ -23,7 +23,7 @@ impl TCPTracker {
     pub fn on_packet(&mut self, packet: &Arc<Packet>) {
         let id = StreamID::new(packet.src_ip, packet.dst_ip, packet.src_port, packet.dst_port);
 
-        let mut remove = false;
+        let remove;
 
         let tm = packet.timestamp;
         {

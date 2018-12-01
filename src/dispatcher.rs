@@ -4,7 +4,7 @@ use std::thread;
 use std::sync::mpsc;
 use packet::Packet;
 use std::num::Wrapping;
-use tcp_tracker::TCPTracker;
+use layer::tcp::TCPTracker;
 
 pub struct Dispatcher {
     n_threads: u8,
