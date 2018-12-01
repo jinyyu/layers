@@ -4,6 +4,11 @@ use std::ptr;
 use layer::TCPHeader;
 use std::ffi::CStr;
 use std::mem;
+use std::sync::Arc;
+use config::Configure;
+use layer::tcp::dissector::{TCPDissectorAllocator, TCPDissector};
+use std::rc::Rc;
+use std::cell::RefCell;
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -73,13 +78,15 @@ extern "C" {
 
 pub struct Detector {
     ctx: *const c_char,
+    tcp_dissector_allocator: TCPDissectorAllocator,
 }
 
 impl Detector {
-    pub fn new() -> Detector {
+    pub fn new(conf: Arc<Configure>) -> Detector {
         unsafe {
             Detector {
-                ctx: init_ndpi_ctx()
+                ctx: init_ndpi_ctx(),
+                tcp_dissector_allocator: TCPDissectorAllocator::new(conf.clone()),
             }
         }
     }
@@ -106,6 +113,10 @@ impl Detector {
             c_str = CStr::from_bytes_with_nul_unchecked(&array);
         }
         return c_str.to_string_lossy().into_owned();
+    }
+
+    pub fn alloc_tcp_dissector(&self, proto: &Proto) -> Rc<RefCell<TCPDissector>> {
+        self.tcp_dissector_allocator.alloc_dissector(proto)
     }
 }
 
