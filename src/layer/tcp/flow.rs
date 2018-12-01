@@ -1,7 +1,6 @@
 use inet;
 use packet::Packet;
 use std::sync::Arc;
-use std::slice;
 
 
 type DataCallback = Fn(&[u8]);

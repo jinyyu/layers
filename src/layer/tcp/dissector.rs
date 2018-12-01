@@ -3,6 +3,7 @@ use std::rc::Rc;
 use config::Configure;
 use std::sync::Arc;
 use detector::Proto;
+use std::collections::HashMap;
 
 
 pub trait TCPDissector {
@@ -23,13 +24,17 @@ impl TCPDissector for DefaultDissector {
     }
 }
 
-pub struct TCPDissectorAllocator {}
+pub struct TCPDissectorAllocator {
+    callbacks: HashMap<u16, fn() -> TCPDissector>,
+}
 
 impl TCPDissectorAllocator {
     pub fn new(conf: Arc<Configure>) -> TCPDissectorAllocator {
         TCPDissectorAllocator {
-
+            callbacks: HashMap::new(),
         }
+
+
     }
 
     pub fn default() -> Rc<RefCell<TCPDissector>> {

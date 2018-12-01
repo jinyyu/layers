@@ -4,5 +4,5 @@
 
 int main(int argc, char* argv[]){
     fprintf(stderr, "%d\n", sizeof(ndpi_protocol));
-    ndpi_guess_undetected_protocol
+    NDPI_PROTOCOL_TFTP
 }

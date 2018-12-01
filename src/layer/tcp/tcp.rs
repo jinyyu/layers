@@ -6,7 +6,6 @@ use libc::c_char;
 use std::ptr;
 use std::collections::VecDeque;
 use layer::flow::TcpFlow;
-use inet;
 use std::cell::RefCell;
 use layer::dissector;
 
@@ -40,7 +39,7 @@ pub struct TCPHeader {
     pub urp: u16,
 }
 
-
+#[allow(dead_code)]
 impl TCPHeader {
     const FIN: u8 = 0x01;
     const SYN: u8 = 0x02;
@@ -217,7 +216,6 @@ impl TCPStream {
         let is_client = self.is_client_flow(packet);
         if is_client {
             flow = &mut self.client_flow;
-            return;
         } else {
             assert_eq!(packet.src_ip, self.server);
             assert_eq!(packet.src_port, self.server_port);
@@ -230,16 +228,12 @@ impl TCPStream {
 
                 if is_client {
                     let cb = move |data: &[u8]| {
-                        unsafe {
-                            dissector.borrow_mut().on_client_data(data);
-                        }
+                        dissector.borrow_mut().on_client_data(data);
                     };
                     f = TcpFlow::new(packet, Box::new(cb));
                 } else {
                     let cb = move |data: &[u8]| {
-                        unsafe {
-                            dissector.borrow_mut().on_server_data(data);
-                        }
+                        dissector.borrow_mut().on_server_data(data);
                     };
                     f = TcpFlow::new(packet, Box::new(cb));
                 }
