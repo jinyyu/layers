@@ -83,11 +83,10 @@ pub struct Detector {
 
 impl Detector {
     pub fn new(conf: Arc<Configure>) -> Detector {
-        unsafe {
-            Detector {
-                ctx: init_ndpi_ctx(),
-                tcp_dissector_allocator: TCPDissectorAllocator::new(conf.clone()),
-            }
+        let ctx = unsafe { init_ndpi_ctx() };
+        Detector {
+            ctx,
+            tcp_dissector_allocator: TCPDissectorAllocator::new(conf.clone()),
         }
     }
 
