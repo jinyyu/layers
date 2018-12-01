@@ -4,6 +4,7 @@ use config::Configure;
 use std::sync::Arc;
 use detector::Proto;
 use std::collections::HashMap;
+use layer::tcp::HTTPDissector;
 
 
 pub trait TCPDissector {
@@ -13,6 +14,13 @@ pub trait TCPDissector {
 
 
 pub struct DefaultDissector {}
+
+
+impl DefaultDissector {
+    fn new() -> Rc<RefCell<TCPDissector>> {
+        Rc::new(RefCell::new(DefaultDissector {}))
+    }
+}
 
 
 impl TCPDissector for DefaultDissector {
@@ -25,16 +33,27 @@ impl TCPDissector for DefaultDissector {
 }
 
 pub struct TCPDissectorAllocator {
-    callbacks: HashMap<u16, fn() -> TCPDissector>,
+    protocol: HashMap<u16, fn() -> Rc<RefCell<TCPDissector>>>,
 }
 
 impl TCPDissectorAllocator {
     pub fn new(conf: Arc<Configure>) -> TCPDissectorAllocator {
-        TCPDissectorAllocator {
-            callbacks: HashMap::new(),
+        let mut allocator = TCPDissectorAllocator {
+            protocol: HashMap::new(),
+        };
+
+        if conf.is_dissector_enable("http") {
+            let cb = HTTPDissector::new;
+            allocator.protocol.insert(Proto::HTTP, cb);
+            allocator.protocol.insert(Proto::HTTP_ACTIVESYNC, cb);
+            allocator.protocol.insert(Proto::HTTP_CONNECT, cb);
+            allocator.protocol.insert(Proto::HTTP_DOWNLOAD, cb);
+            allocator.protocol.insert(Proto::HTTP_PROXY, cb);
+
         }
 
 
+        allocator
     }
 
     pub fn default() -> Rc<RefCell<TCPDissector>> {
@@ -42,6 +61,14 @@ impl TCPDissectorAllocator {
     }
 
     pub fn alloc_dissector(&self, proto: &Proto) -> Rc<RefCell<TCPDissector>> {
-        Rc::new(RefCell::new(DefaultDissector {}))
+        if let Some(cb) =  self.protocol.get(&proto.app_protocol) {
+            return cb();
+        }
+
+        if let Some(cb) =  self.protocol.get(&proto.master_protocol) {
+            return cb();
+        }
+
+        DefaultDissector::new()
     }
 }

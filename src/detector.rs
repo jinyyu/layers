@@ -9,8 +9,8 @@ use std::cell::RefCell;
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct Proto {
-    pub master_id: u16,
-    pub app_id: u16,
+    pub master_protocol: u16,
+    pub app_protocol: u16,
     pub category: u32,
 }
 
@@ -261,15 +261,15 @@ impl Proto {
 
     pub fn new() -> Proto {
         Proto {
-            master_id: 0,
-            app_id: 0,
+            master_protocol: 0,
+            app_protocol: 0,
             category: 0,
         }
     }
 
     #[inline]
     pub fn success(&self) -> bool {
-        self.app_id != Proto::UNKNOWN || self.master_id != Proto::UNKNOWN
+        self.app_protocol != Proto::UNKNOWN || self.master_protocol != Proto::UNKNOWN
     }
 }
 
