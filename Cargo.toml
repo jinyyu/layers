@@ -3,11 +3,10 @@ name = "layers"
 version = "0.1.0"
 authors = ["ljy <jinyyu@hotmail.com>"]
 
-#[warn(non_snake_case)]
-
 [dependencies]
-libc = "0.2.43"
-log = "0.4.6"
-env_logger = "0.6.0"
-argparse = "0.2.2"
-yaml-rust = "0.4.2"
+libc = "*"
+log = "*"
+env_logger = "*"
+argparse = "*"
+yaml-rust = "*"
+gmime = "*"
