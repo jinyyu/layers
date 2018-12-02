@@ -1,6 +1,7 @@
 use std::slice;
 use std::sync::Arc;
 use layer::*;
+use layer::tcp::tcp::TCPHeader;
 use inet;
 use std::ptr;
 use std::mem;

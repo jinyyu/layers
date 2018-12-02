@@ -5,7 +5,9 @@ use detector;
 use libc::c_char;
 use std::ptr;
 use std::collections::VecDeque;
-use inet;
+use layer::flow::TcpFlow;
+use std::cell::RefCell;
+use layer::dissector;
 
 #[repr(C)]
 pub struct TCPHeader {
@@ -37,7 +39,7 @@ pub struct TCPHeader {
     pub urp: u16,
 }
 
-
+#[allow(dead_code)]
 impl TCPHeader {
     const FIN: u8 = 0x01;
     const SYN: u8 = 0x02;
@@ -82,6 +84,8 @@ pub struct TCPStream {
 
     client_flow: Option<TcpFlow>,
     server_flow: Option<TcpFlow>,
+
+    dissector: Rc<RefCell<dissector::TCPDissector>>,
 }
 
 
@@ -110,6 +114,7 @@ impl TCPStream {
 
             client_flow: None,
             server_flow: None,
+            dissector: dissector::TCPDissectorAllocator::default(),
         };
 
         if unsafe { (*packet.tcp).flags & TCPHeader::SYN > 0 } {
@@ -192,9 +197,7 @@ impl TCPStream {
 
     fn on_detect_success(&mut self) {
         debug!("proto name = {}", self.detector.protocol_name(&self.proto));
-        self.client_flow = Some(TcpFlow::new());
-        self.server_flow = Some(TcpFlow::new());
-
+        self.dissector = self.detector.alloc_tcp_dissector(&self.proto);
         loop {
             let packet = self.pending_packets.pop_front();
             match packet {
@@ -210,20 +213,36 @@ impl TCPStream {
 
     fn dispatch_packet(&mut self, packet: &Arc<Packet>) {
         let flow;
-        if self.is_client_flow(packet) {
+        let is_client = self.is_client_flow(packet);
+        if is_client {
             flow = &mut self.client_flow;
-            return;
         } else {
             assert_eq!(packet.src_ip, self.server);
             assert_eq!(packet.src_port, self.server_port);
             flow = &mut self.server_flow;
         }
         match *flow {
+            None => {
+                let mut f;
+                let dissector = self.dissector.clone();
+
+                if is_client {
+                    let cb = move |data: &[u8]| {
+                        dissector.borrow_mut().on_client_data(data);
+                    };
+                    f = TcpFlow::new(packet, Box::new(cb));
+                } else {
+                    let cb = move |data: &[u8]| {
+                        dissector.borrow_mut().on_server_data(data);
+                    };
+                    f = TcpFlow::new(packet, Box::new(cb));
+                }
+                f.handle_packet(packet);
+
+                *flow = Some(f);
+            }
             Some(ref mut flow) => {
                 flow.handle_packet(packet);
-            }
-            None => {
-                unreachable!()
             }
         }
     }
@@ -246,19 +265,3 @@ impl Drop for TCPStream {
     }
 }
 
-
-struct TcpFlow {}
-
-impl TcpFlow {
-    fn new() -> TcpFlow {
-        TcpFlow {}
-    }
-
-    fn handle_packet(&mut self, packet: &Arc<Packet>) {
-        if packet.tcp_payload().len() == 0 {
-            debug!("----");
-        }
-        let seq = unsafe { inet::ntohl((*packet.tcp).seq) };
-        debug!("seq = {}, data len = {}", seq, packet.tcp_payload().len());
-    }
-}

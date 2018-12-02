@@ -5,6 +5,7 @@ use layer::ip::StreamID;
 use std::collections::HashMap;
 use layer::tcp::TCPStream;
 use detector::Detector;
+use config;
 
 pub struct TCPTracker {
     streams: HashMap<StreamID, TCPStream>,
@@ -13,17 +14,17 @@ pub struct TCPTracker {
 
 
 impl TCPTracker {
-    pub fn new() -> TCPTracker {
+    pub fn new(conf: Arc<config::Configure>) -> TCPTracker {
         TCPTracker {
             streams: HashMap::new(),
-            detector: Rc::new(Detector::new()),
+            detector: Rc::new(Detector::new(conf.clone())),
         }
     }
 
     pub fn on_packet(&mut self, packet: &Arc<Packet>) {
         let id = StreamID::new(packet.src_ip, packet.dst_ip, packet.src_port, packet.dst_port);
 
-        let mut remove = false;
+        let remove;
 
         let tm = packet.timestamp;
         {

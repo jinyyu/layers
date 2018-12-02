@@ -4,7 +4,7 @@ use std::thread;
 use std::sync::mpsc;
 use packet::Packet;
 use std::num::Wrapping;
-use tcp_tracker::TCPTracker;
+use layer::tcp::TCPTracker;
 
 pub struct Dispatcher {
     n_threads: u8,
@@ -30,8 +30,10 @@ pub fn init(conf: Arc<config::Configure>) -> Arc<Dispatcher> {
     for _i in 0..conf.worker_thread {
         let (tx, rx) = mpsc::channel::<Arc<Packet>>();
 
+        let config = conf.clone();
+
         let cb = move || {
-            let mut tcp_tracker = Box::new(TCPTracker::new());
+            let mut tcp_tracker = Box::new(TCPTracker::new(config));
 
             loop {
                 let packet = rx.recv().expect("channel receive error");

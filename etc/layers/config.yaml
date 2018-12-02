@@ -4,3 +4,7 @@ workspace : "/tmp/layers"
 interface: ens33
 
 worker_thread: 4
+
+dissector:
+  - http
+  - smb
