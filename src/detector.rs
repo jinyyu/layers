@@ -302,6 +302,8 @@ extern "C" {
                           len: u32) -> *const c_char;
 
 
+    fn ndpi_get_http_url(ctx: *const c_char, flow: *const c_char) -> *const c_char;
+
     pub fn init_ndpi_ctx() -> *const c_char;
     pub fn free_ndpi_ctx(ctx: *const c_char);
 
@@ -349,11 +351,20 @@ impl Detector {
             ndpi_protocol2name(self.ctx, *proto, array.as_mut_ptr() as *mut i8, 16);
             c_str = CStr::from_bytes_with_nul_unchecked(&array);
         }
-        return c_str.to_string_lossy().into_owned();
+        c_str.to_string_lossy().into_owned()
     }
 
-    pub fn alloc_tcp_dissector(&self, proto: &Proto) -> Rc<RefCell<TCPDissector>> {
-        self.tcp_dissector_allocator.alloc_dissector(proto)
+    pub fn alloc_tcp_dissector(&self, proto: &Proto, detector: Rc<Detector>, flow: *const c_char) -> Rc<RefCell<TCPDissector>> {
+        self.tcp_dissector_allocator.alloc_dissector(proto, detector, flow)
+    }
+
+    pub fn get_http_url(&self, flow: *const c_char) -> String {
+        let c_str;
+        unsafe {
+             c_str =  CStr::from_ptr(ndpi_get_http_url(self.ctx, flow) as *const c_char);
+        }
+
+        c_str.to_string_lossy().into_owned()
     }
 }
 

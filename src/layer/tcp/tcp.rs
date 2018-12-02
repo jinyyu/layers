@@ -197,7 +197,7 @@ impl TCPStream {
 
     fn on_detect_success(&mut self) {
         debug!("proto name = {}", self.detector.protocol_name(&self.proto));
-        self.dissector = self.detector.alloc_tcp_dissector(&self.proto);
+        self.dissector = self.detector.alloc_tcp_dissector(&self.proto, self.detector.clone(), self.flow);
         loop {
             let packet = self.pending_packets.pop_front();
             match packet {

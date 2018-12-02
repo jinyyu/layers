@@ -5,6 +5,8 @@ use std::sync::Arc;
 use detector::Proto;
 use std::collections::HashMap;
 use layer::tcp::HTTPDissector;
+use libc::c_char;
+use detector::Detector;
 
 
 pub trait TCPDissector {
@@ -33,7 +35,7 @@ impl TCPDissector for DefaultDissector {
 }
 
 pub struct TCPDissectorAllocator {
-    protocol: HashMap<u16, fn() -> Rc<RefCell<TCPDissector>>>,
+    protocol: HashMap<u16, fn(detector: Rc<Detector>, flow: *const c_char) -> Rc<RefCell<TCPDissector>>>,
 }
 
 impl TCPDissectorAllocator {
@@ -52,7 +54,6 @@ impl TCPDissectorAllocator {
 
         }
 
-
         allocator
     }
 
@@ -60,13 +61,13 @@ impl TCPDissectorAllocator {
         Rc::new(RefCell::new(DefaultDissector {}))
     }
 
-    pub fn alloc_dissector(&self, proto: &Proto) -> Rc<RefCell<TCPDissector>> {
+    pub fn alloc_dissector(&self, proto: &Proto, detector: Rc<Detector>, flow: *const c_char) -> Rc<RefCell<TCPDissector>> {
         if let Some(cb) =  self.protocol.get(&proto.app_protocol) {
-            return cb();
+            return cb(detector, flow);
         }
 
         if let Some(cb) =  self.protocol.get(&proto.master_protocol) {
-            return cb();
+            return cb(detector, flow);
         }
 
         DefaultDissector::new()
