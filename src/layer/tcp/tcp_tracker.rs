@@ -78,7 +78,7 @@ impl TCPTracker {
             self.streams.remove(key);
             n_stream += 1
         }
-        debug!("---------------------------------------------clean tcpstream {}/{}", n_stream, n_stream + self.streams.len());
+        debug!("clean tcp stream {}/{}", n_stream, n_stream + self.streams.len());
         self.last_cleanup = tm;
     }
 }
