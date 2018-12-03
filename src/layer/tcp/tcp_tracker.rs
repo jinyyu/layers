@@ -46,9 +46,9 @@ impl TCPTracker {
         }
         if remove {
             self.streams.remove(&id);
+        } else {
+            self.cleanup_stream(tm);
         }
-
-        self.cleanup_stream(tm);
     }
 
 
@@ -58,27 +58,14 @@ impl TCPTracker {
             return;
         }
 
-        let mut keys = Vec::new();
+        let before = self.streams.len();
 
-        {
-            let iter = self.streams.iter().filter(|item| {
-                if item.1.last_seen() + TCPTracker::STREAM_CLEANUP_DURATION < tm {
-                    return true;
-                } else {
-                    return false;
-                }
-            });
+        self.streams.retain(|_k, v| -> bool {
+            v.last_seen() + TCPTracker::STREAM_CLEANUP_DURATION > tm
+        });
 
-            for k in iter {
-                keys.push(*k.0)
-            }
-        }
-        let mut n_stream = 0;
-        for key in keys.iter() {
-            self.streams.remove(key);
-            n_stream += 1
-        }
-        debug!("clean tcp stream {}/{}", n_stream, n_stream + self.streams.len());
+        let after = self.streams.len();
+        debug!("tcp stream cleanup {}/{}", before - after, before);
         self.last_cleanup = tm;
     }
 }
