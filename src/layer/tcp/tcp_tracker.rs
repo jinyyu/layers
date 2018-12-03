@@ -53,7 +53,6 @@ impl TCPTracker {
 
 
     pub fn cleanup_stream(&mut self, tm: u64) {
-        //fixme: effective
         if self.last_cleanup + TCPTracker::STREAM_CLEANUP_DURATION > tm {
             return;
         }
