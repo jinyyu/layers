@@ -3,6 +3,7 @@ project(layers-distribution)
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/etc DESTINATION /)
 
+set(CMAKE_CXX_STANDARD 11)
 
 set(SRC
     cpp/checksum.cpp

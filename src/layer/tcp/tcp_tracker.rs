@@ -10,12 +10,17 @@ use config;
 pub struct TCPTracker {
     streams: HashMap<StreamID, TCPStream>,
     detector: Rc<Detector>,
+    last_cleanup: u64,
 }
 
 
 impl TCPTracker {
+    //micro secode
+    const STREAM_CLEANUP_DURATION: u64 = 1000 * 1000 * 30;
+
     pub fn new(conf: Arc<config::Configure>) -> TCPTracker {
         TCPTracker {
+            last_cleanup: 0,
             streams: HashMap::new(),
             detector: Rc::new(Detector::new(conf.clone())),
         }
@@ -47,5 +52,33 @@ impl TCPTracker {
     }
 
 
-    pub fn cleanup_stream(&mut self, tm: u64) {}
+    pub fn cleanup_stream(&mut self, tm: u64) {
+        //fixme: effective
+        if self.last_cleanup + TCPTracker::STREAM_CLEANUP_DURATION > tm {
+            return;
+        }
+
+        let mut keys = Vec::new();
+
+        {
+            let iter = self.streams.iter().filter(|item| {
+                if item.1.last_seen() + TCPTracker::STREAM_CLEANUP_DURATION < tm {
+                    return true;
+                } else {
+                    return false;
+                }
+            });
+
+            for k in iter {
+                keys.push(*k.0)
+            }
+        }
+        let mut n_stream = 0;
+        for key in keys.iter() {
+            self.streams.remove(key);
+            n_stream += 1
+        }
+        debug!("---------------------------------------------clean tcpstream {}/{}", n_stream, n_stream + self.streams.len());
+        self.last_cleanup = tm;
+    }
 }

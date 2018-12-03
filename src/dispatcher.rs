@@ -5,6 +5,7 @@ use std::sync::mpsc;
 use packet::Packet;
 use std::num::Wrapping;
 use layer::tcp::TCPTracker;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub struct Dispatcher {
     n_threads: u8,
@@ -35,12 +36,30 @@ pub fn init(conf: Arc<config::Configure>) -> Arc<Dispatcher> {
         let cb = move || {
             let mut tcp_tracker = Box::new(TCPTracker::new(config));
 
-            loop {
-                let packet = rx.recv().expect("channel receive error");
+            let timeout = Duration::new(10, 0);
 
-                if packet.flag & Packet::TCP > 0 {
-                    trace!("{}:{} ->{}:{}", packet.src_ip_str(), packet.src_port, packet.dst_ip_str(), packet.dst_port);
-                    TCPTracker::on_packet(&mut tcp_tracker, &packet)}
+            loop {
+                match rx.recv_timeout(timeout) {
+                    Ok(packet) => {
+                        if packet.flag & Packet::TCP > 0 {
+                            trace!("{}:{} ->{}:{}", packet.src_ip_str(), packet.src_port, packet.dst_ip_str(), packet.dst_port);
+                            TCPTracker::on_packet(&mut tcp_tracker, &packet)
+                        }
+                    }
+                    Err(e) => {
+                        match e {
+                            mpsc::RecvTimeoutError::Timeout => {
+                                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() * 1000 * 1000;
+                                tcp_tracker.cleanup_stream(now);
+                            }
+
+                            mpsc::RecvTimeoutError::Disconnected => {
+                                debug!("Disconnected");
+                                return;
+                            }
+                        }
+                    }
+                }
             }
         };
 

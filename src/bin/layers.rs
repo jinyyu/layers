@@ -44,7 +44,7 @@ impl Main {
             }
         }
         env::set_current_dir(path).unwrap();
-        debug!("set up ok");
+        debug!("setup ok");
     }
 
     fn run(&self) {

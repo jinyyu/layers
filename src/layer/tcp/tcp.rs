@@ -64,6 +64,8 @@ pub struct TCPStream {
     finished: bool,
     state: State,
 
+    last_timestamp: u64,
+
     //host order
     client_port: u16,
     server_port: u16,
@@ -97,6 +99,8 @@ impl TCPStream {
             finished: false,
             state: State::DetectTrying,
 
+            last_timestamp: packet.timestamp,
+
             detector,
             flow: ptr::null(),
             client_id: ptr::null(),
@@ -124,7 +128,13 @@ impl TCPStream {
         return stream;
     }
 
+    pub fn last_seen(&self) ->u64 {
+        self.last_timestamp
+    }
+
     pub fn handle_packet(&mut self, packet: &Arc<Packet>) {
+        self.last_timestamp = packet.timestamp;
+
         match self.state {
             State::DetectError => {
                 debug!("unknown protocol");
