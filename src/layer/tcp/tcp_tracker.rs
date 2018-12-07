@@ -15,7 +15,7 @@ pub struct TCPTracker {
 
 
 impl TCPTracker {
-    //micro secode
+    //micro second
     const STREAM_CLEANUP_DURATION: u64 = 1000 * 1000 * 30;
 
     pub fn new(conf: Arc<config::Configure>) -> TCPTracker {
