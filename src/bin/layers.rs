@@ -1,17 +1,17 @@
-use std::io::Write;
 use env_logger::Builder;
 use std::env;
-use std::path::Path;
 use std::fs;
+use std::io::Write;
+use std::path::Path;
 use std::sync::Arc;
 
 #[macro_use]
 extern crate log;
-extern crate env_logger;
 extern crate argparse;
+extern crate env_logger;
 extern crate layers;
 
-use layers::*;
+use crate::layers::*;
 
 struct Main {
     dispatcher: Arc<dispatcher::Dispatcher>,
@@ -23,10 +23,7 @@ impl Main {
         let daq = daq::init(conf.clone());
         let dispatcher = dispatcher::init(conf.clone());
 
-        Main {
-            dispatcher,
-            daq,
-        }
+        Main { dispatcher, daq }
     }
 
     fn setup_workspace(conf: Arc<config::Configure>) {
@@ -38,9 +35,7 @@ impl Main {
                 Ok(_) => {
                     debug!("create dir success");
                 }
-                Err(err) => {
-                    panic!("create workspace dir error {}", err)
-                }
+                Err(err) => panic!("create workspace dir error {}", err),
             }
         }
         env::set_current_dir(path).unwrap();
@@ -61,17 +56,26 @@ fn main() {
     {
         let mut ap = argparse::ArgumentParser::new();
         ap.set_description("layers");
-        ap.refer(&mut configure)
-            .add_option(&["-c", "--config"], argparse::Store,
-                        "config file path");
+        ap.refer(&mut configure).add_option(
+            &["-c", "--config"],
+            argparse::Store,
+            "config file path",
+        );
         ap.parse_args_or_exit();
     }
 
     Builder::from_default_env()
         .format(|buf, record| {
-            writeln!(buf, "[{}] [{}:{}] {}", record.level(), record.file().unwrap(), record.line().unwrap(), record.args())
-        }).init();
-
+            writeln!(
+                buf,
+                "[{}] [{}:{}] {}",
+                record.level(),
+                record.file().unwrap(),
+                record.line().unwrap(),
+                record.args()
+            )
+        })
+        .init();
 
     let conf = config::load(configure);
     Main::setup_workspace(conf.clone());

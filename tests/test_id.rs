@@ -2,7 +2,6 @@ extern crate layers;
 
 #[test]
 fn test_id() {
-
     use std::collections::BTreeMap;
 
     let mut a = BTreeMap::new();

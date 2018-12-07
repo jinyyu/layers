@@ -1,34 +1,34 @@
+use crate::inet;
 use std::cmp;
-use inet;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct IPProto(pub u8);
 
 impl IPProto {
-    pub const IP: IPProto = IPProto(0);           /* Dummy protocol for TCP.  */
-    pub const ICMP: IPProto = IPProto(1);         /* Internet Control Message Protocol.  */
-    pub const IGMP: IPProto = IPProto(2);         /* Internet Group Management Protocol. */
-    pub const IPIP: IPProto = IPProto(4);         /* IPIP tunnels (older KA9Q tunnels use 94).  */
-    pub const TCP: IPProto = IPProto(6);          /* Transmission Control Protocol.  */
-    pub const EGP: IPProto = IPProto(8);          /* Exterior Gateway Protocol.  */
-    pub const PUP: IPProto = IPProto(12);         /* PUP protocol.  */
-    pub const UDP: IPProto = IPProto(17);         /* User Datagram Protocol.  */
-    pub const IDP: IPProto = IPProto(22);         /* XNS IDP protocol.  */
-    pub const TP: IPProto = IPProto(29);          /* SO Transport Protocol Class 4.  */
-    pub const DCCP: IPProto = IPProto(33);        /* Datagram Congestion Control Protocol.  */
-    pub const IPV6: IPProto = IPProto(41);        /* IPv6 header.  */
-    pub const RSVP: IPProto = IPProto(46);        /* Reservation Protocol.  */
-    pub const GRE: IPProto = IPProto(47);         /* General Routing Encapsulation.  */
-    pub const ESP: IPProto = IPProto(50);         /* encapsulating security payload.  */
-    pub const AH: IPProto = IPProto(51);          /* authentication header.  */
-    pub const MTP: IPProto = IPProto(92);         /* Multicast Transport Protocol.  */
-    pub const BEETPH: IPProto = IPProto(94);      /* IP option pseudo header for BEET.  */
-    pub const ENCAP: IPProto = IPProto(98);       /* Encapsulation Header.  */
-    pub const PIM: IPProto = IPProto(103);        /* Protocol Independent Multicast.  */
-    pub const COMP: IPProto = IPProto(108);       /* Compression Header Protocol.  */
-    pub const SCTP: IPProto = IPProto(132);       /* Stream Control Transmission Protocol.  */
-    pub const UDPLITE: IPProto = IPProto(136);    /* UDP-Lite protocol.  */
-    pub const RAW: IPProto = IPProto(255);        /* Raw IP packets.  */
+    pub const IP: IPProto = IPProto(0); /* Dummy protocol for TCP.  */
+    pub const ICMP: IPProto = IPProto(1); /* Internet Control Message Protocol.  */
+    pub const IGMP: IPProto = IPProto(2); /* Internet Group Management Protocol. */
+    pub const IPIP: IPProto = IPProto(4); /* IPIP tunnels (older KA9Q tunnels use 94).  */
+    pub const TCP: IPProto = IPProto(6); /* Transmission Control Protocol.  */
+    pub const EGP: IPProto = IPProto(8); /* Exterior Gateway Protocol.  */
+    pub const PUP: IPProto = IPProto(12); /* PUP protocol.  */
+    pub const UDP: IPProto = IPProto(17); /* User Datagram Protocol.  */
+    pub const IDP: IPProto = IPProto(22); /* XNS IDP protocol.  */
+    pub const TP: IPProto = IPProto(29); /* SO Transport Protocol Class 4.  */
+    pub const DCCP: IPProto = IPProto(33); /* Datagram Congestion Control Protocol.  */
+    pub const IPV6: IPProto = IPProto(41); /* IPv6 header.  */
+    pub const RSVP: IPProto = IPProto(46); /* Reservation Protocol.  */
+    pub const GRE: IPProto = IPProto(47); /* General Routing Encapsulation.  */
+    pub const ESP: IPProto = IPProto(50); /* encapsulating security payload.  */
+    pub const AH: IPProto = IPProto(51); /* authentication header.  */
+    pub const MTP: IPProto = IPProto(92); /* Multicast Transport Protocol.  */
+    pub const BEETPH: IPProto = IPProto(94); /* IP option pseudo header for BEET.  */
+    pub const ENCAP: IPProto = IPProto(98); /* Encapsulation Header.  */
+    pub const PIM: IPProto = IPProto(103); /* Protocol Independent Multicast.  */
+    pub const COMP: IPProto = IPProto(108); /* Compression Header Protocol.  */
+    pub const SCTP: IPProto = IPProto(132); /* Stream Control Transmission Protocol.  */
+    pub const UDPLITE: IPProto = IPProto(136); /* UDP-Lite protocol.  */
+    pub const RAW: IPProto = IPProto(255); /* Raw IP packets.  */
 
     pub fn to_string(self) -> &'static str {
         match self {
@@ -56,7 +56,7 @@ impl IPProto {
             IPProto::SCTP => "SCTP",
             IPProto::UDPLITE => "UDPLITE",
             IPProto::RAW => "RAW",
-            _ => "Unknown"
+            _ => "Unknown",
         }
     }
 }
@@ -106,10 +106,8 @@ impl IPV4Header {
     }
 
     #[inline]
-    pub fn total_length(&self) ->u16 {
-        unsafe {
-            inet::ntohs(self.len)
-        }
+    pub fn total_length(&self) -> u16 {
+        unsafe { inet::ntohs(self.len) }
     }
 }
 

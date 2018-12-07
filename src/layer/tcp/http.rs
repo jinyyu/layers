@@ -1,8 +1,8 @@
-use layer::TCPDissector;
-use std::rc::Rc;
-use std::cell::RefCell;
+use crate::detector::Detector;
+use crate::layer::TCPDissector;
 use libc::c_char;
-use detector::Detector;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 pub struct HTTPDissector {
     detector: Rc<Detector>,
@@ -11,10 +11,7 @@ pub struct HTTPDissector {
 
 impl HTTPDissector {
     pub fn new(detector: Rc<Detector>, flow: *const c_char) -> Rc<RefCell<TCPDissector>> {
-        let http = HTTPDissector {
-            detector,
-            flow,
-        };
+        let http = HTTPDissector { detector, flow };
 
         debug!("http request {}", http.detector.get_http_url(http.flow));
 

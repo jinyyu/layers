@@ -1,8 +1,8 @@
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
-use yaml_rust::yaml;
 use std::sync::Arc;
-use std::collections::HashMap;
+use yaml_rust::yaml;
 
 pub struct Configure {
     pub interface: String,
@@ -14,12 +14,8 @@ pub struct Configure {
 impl Configure {
     pub fn is_dissector_enable(&self, name: &str) -> bool {
         match self.dissectors.get(name) {
-            Some(_) => {
-                true
-            }
-            None => {
-                false
-            }
+            Some(_) => true,
+            None => false,
         }
     }
 }
@@ -39,7 +35,9 @@ pub fn load(path: String) -> Arc<Configure> {
     let workspace = doc["workspace"].as_str().expect("invalid workspace");
     info!("workspace = {}", workspace);
 
-    let worker_thread = doc["worker_thread"].as_i64().expect("invalid worker_thread");
+    let worker_thread = doc["worker_thread"]
+        .as_i64()
+        .expect("invalid worker_thread");
     info!("worker_thread = {}", worker_thread);
 
     let mut conf = Configure {

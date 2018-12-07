@@ -1,18 +1,17 @@
-use std::sync::Arc;
-use std::rc::Rc;
-use packet::Packet;
-use layer::ip::StreamID;
+use crate::config;
+use crate::detector::Detector;
+use crate::layer::ip::StreamID;
+use crate::layer::tcp::TCPStream;
+use crate::packet::Packet;
 use std::collections::HashMap;
-use layer::tcp::TCPStream;
-use detector::Detector;
-use config;
+use std::rc::Rc;
+use std::sync::Arc;
 
 pub struct TCPTracker {
     streams: HashMap<StreamID, TCPStream>,
     detector: Rc<Detector>,
     last_cleanup: u64,
 }
-
 
 impl TCPTracker {
     //micro second
@@ -27,7 +26,12 @@ impl TCPTracker {
     }
 
     pub fn on_packet(&mut self, packet: &Arc<Packet>) {
-        let id = StreamID::new(packet.src_ip, packet.dst_ip, packet.src_port, packet.dst_port);
+        let id = StreamID::new(
+            packet.src_ip,
+            packet.dst_ip,
+            packet.src_port,
+            packet.dst_port,
+        );
 
         let remove;
 
@@ -36,7 +40,13 @@ impl TCPTracker {
             let pkt = packet.clone();
             let detector = self.detector.clone();
             let stream = self.streams.entry(id).or_insert_with(|| {
-                debug!("new tcp stream {}:{} ->{}:{}", pkt.src_ip_str(), pkt.src_port, pkt.dst_ip_str(), pkt.dst_port);
+                debug!(
+                    "new tcp stream {}:{} ->{}:{}",
+                    pkt.src_ip_str(),
+                    pkt.src_port,
+                    pkt.dst_ip_str(),
+                    pkt.dst_port
+                );
                 let stream = TCPStream::new(pkt, detector);
                 return stream;
             });
@@ -51,7 +61,6 @@ impl TCPTracker {
         }
     }
 
-
     pub fn cleanup_stream(&mut self, tm: u64) {
         if self.last_cleanup + TCPTracker::STREAM_CLEANUP_DURATION > tm {
             return;
@@ -59,9 +68,8 @@ impl TCPTracker {
 
         let before = self.streams.len();
 
-        self.streams.retain(|_k, v| -> bool {
-            v.last_seen() + TCPTracker::STREAM_CLEANUP_DURATION > tm
-        });
+        self.streams
+            .retain(|_k, v| -> bool { v.last_seen() + TCPTracker::STREAM_CLEANUP_DURATION > tm });
 
         let after = self.streams.len();
         debug!("tcp stream cleanup {}/{}", before - after, before);

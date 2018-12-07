@@ -1,11 +1,9 @@
-use std::sync::Arc;
+use crate::config;
+use crate::packet::Packet;
+use libc::{c_char, c_int, c_uint};
 use std::ffi::CString;
-use libc::{c_int, c_uint, c_char};
-use packet::Packet;
 use std::mem;
-
-use config;
-
+use std::sync::Arc;
 
 #[repr(C)]
 pub struct DAQ {
@@ -52,7 +50,12 @@ extern "C" {
     fn pcap_set_promisc(_handle: *const c_char, _promisc: c_int) -> c_int;
     fn pcap_activate(_handle: *const c_char) -> c_int;
     fn pcap_close(_handle: *const c_char);
-    fn pcap_loop(_handle: *const c_char, _count: c_int, _cb: extern fn(ctx: *mut c_char, *const PacketHeader, *const c_char), _ctx: *mut c_char) -> c_int;
+    fn pcap_loop(
+        _handle: *const c_char,
+        _count: c_int,
+        _cb: extern "C" fn(ctx: *mut c_char, *const PacketHeader, *const c_char),
+        _ctx: *mut c_char,
+    ) -> c_int;
 }
 
 impl DAQ {
@@ -60,7 +63,12 @@ impl DAQ {
         let mut callback = Box::new(cb);
         info!("pcap start");
         unsafe {
-            pcap_loop(self.handle, -1, loop_callback, mem::transmute::<*mut &Fn(Arc<Packet>), *mut c_char>(&mut *callback));
+            pcap_loop(
+                self.handle,
+                -1,
+                loop_callback,
+                mem::transmute::<*mut &Fn(Arc<Packet>), *mut c_char>(&mut *callback),
+            );
         }
         info!("pcap_loop exit ");
     }
@@ -95,7 +103,10 @@ fn open_device(device: &str) -> Option<*const c_char> {
     unsafe {
         let handle = pcap_create(device.as_ptr() as *const c_char, buffer);
         if handle.is_null() {
-            error!("pcap_create error {}", CString::from_raw(buffer as *mut c_char).to_str().unwrap());
+            error!(
+                "pcap_create error {}",
+                CString::from_raw(buffer as *mut c_char).to_str().unwrap()
+            );
             return None;
         }
 
@@ -133,4 +144,3 @@ fn open_device(device: &str) -> Option<*const c_char> {
         return Some(handle);
     }
 }
-

@@ -1,13 +1,13 @@
-use std::sync::Arc;
-use std::rc::Rc;
-use packet::Packet;
-use detector;
+use crate::detector;
+use crate::layer::dissector;
+use crate::layer::flow::TcpFlow;
+use crate::packet::Packet;
 use libc::c_char;
-use std::ptr;
-use std::collections::VecDeque;
-use layer::flow::TcpFlow;
 use std::cell::RefCell;
-use layer::dissector;
+use std::collections::VecDeque;
+use std::ptr;
+use std::rc::Rc;
+use std::sync::Arc;
 
 #[repr(C)]
 pub struct TCPHeader {
@@ -90,7 +90,6 @@ pub struct TCPStream {
     dissector: Rc<RefCell<dissector::TCPDissector>>,
 }
 
-
 impl TCPStream {
     const MAX_DETECT_TIMES: u8 = 10;
 
@@ -128,7 +127,7 @@ impl TCPStream {
         return stream;
     }
 
-    pub fn last_seen(&self) ->u64 {
+    pub fn last_seen(&self) -> u64 {
         self.last_timestamp
     }
 
@@ -173,22 +172,25 @@ impl TCPStream {
         return packet.src_port == self.client_port && packet.src_ip == self.client;
     }
 
-
     fn detect_protocol(&mut self, packet: &Arc<Packet>) {
         if self.is_client_flow(packet) {
-            self.proto = self.detector.detect(self.flow,
-                                              packet.ipv4 as *const c_char,
-                                              packet.ip_layer_len as u16,
-                                              packet.timestamp,
-                                              self.client_id,
-                                              self.server_id);
+            self.proto = self.detector.detect(
+                self.flow,
+                packet.ipv4 as *const c_char,
+                packet.ip_layer_len as u16,
+                packet.timestamp,
+                self.client_id,
+                self.server_id,
+            );
         } else {
-            self.proto = self.detector.detect(self.flow,
-                                              packet.ipv4 as *const c_char,
-                                              packet.ip_layer_len as u16,
-                                              packet.timestamp,
-                                              self.server_id,
-                                              self.client_id);
+            self.proto = self.detector.detect(
+                self.flow,
+                packet.ipv4 as *const c_char,
+                packet.ip_layer_len as u16,
+                packet.timestamp,
+                self.server_id,
+                self.client_id,
+            );
         }
 
         if self.proto.success() {
@@ -204,10 +206,11 @@ impl TCPStream {
         }
     }
 
-
     fn on_detect_success(&mut self) {
         debug!("proto name = {}", self.detector.protocol_name(&self.proto));
-        self.dissector = self.detector.alloc_tcp_dissector(&self.proto, self.detector.clone(), self.flow);
+        self.dissector =
+            self.detector
+                .alloc_tcp_dissector(&self.proto, self.detector.clone(), self.flow);
         loop {
             let packet = self.pending_packets.pop_front();
             match packet {
@@ -274,4 +277,3 @@ impl Drop for TCPStream {
         }
     }
 }
-

@@ -11,14 +11,14 @@ impl EthernetType {
     pub const IPV6: EthernetType = EthernetType(0x86dd);
     pub const IPX: EthernetType = EthernetType(0x8137);
     pub const PPPOE_DISC: EthernetType = EthernetType(0x8863); /* discovery stage */
-    pub const PPPOE_SESS: EthernetType = EthernetType(0x8864);/* session stage */
+    pub const PPPOE_SESS: EthernetType = EthernetType(0x8864); /* session stage */
     pub const T8021AD: EthernetType = EthernetType(0x88a8);
     pub const T8021AH: EthernetType = EthernetType(0x88e7);
     pub const T8021Q: EthernetType = EthernetType(0x8100);
     pub const LOOP: EthernetType = EthernetType(0x9000);
     pub const T8021QINQ: EthernetType = EthernetType(0x9100);
     pub const ERSPAN: EthernetType = EthernetType(0x88BE);
-    pub const DCE: EthernetType = EthernetType(0x8903);/* Data center ethernet*/
+    pub const DCE: EthernetType = EthernetType(0x8903); /* Data center ethernet*/
 
     pub fn ethernet_type_string(value: EthernetType) -> &'static str {
         match value {
@@ -39,11 +39,10 @@ impl EthernetType {
             EthernetType::T8021QINQ => "8021QINQ",
             EthernetType::ERSPAN => "ERSPAN",
             EthernetType::DCE => "DCE",
-            _ => "Unknown"
+            _ => "Unknown",
         }
     }
 }
-
 
 #[repr(C)]
 pub struct EthernetHeader {
@@ -54,10 +53,26 @@ pub struct EthernetHeader {
 
 impl EthernetHeader {
     pub fn src_mac(&self) -> String {
-        return format!("{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}", (self.eth_src)[0], (self.eth_src)[1], (self.eth_src)[2], (self.eth_src)[3], (self.eth_src)[4], (self.eth_src)[5]);
+        return format!(
+            "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            (self.eth_src)[0],
+            (self.eth_src)[1],
+            (self.eth_src)[2],
+            (self.eth_src)[3],
+            (self.eth_src)[4],
+            (self.eth_src)[5]
+        );
     }
 
     pub fn dst_mac(&self) -> String {
-        return format!("{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}", (self.eth_dst)[0], (self.eth_dst)[1], (self.eth_dst)[2], (self.eth_dst)[3], (self.eth_dst)[4], (self.eth_dst)[5]);
+        return format!(
+            "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}",
+            (self.eth_dst)[0],
+            (self.eth_dst)[1],
+            (self.eth_dst)[2],
+            (self.eth_dst)[3],
+            (self.eth_dst)[4],
+            (self.eth_dst)[5]
+        );
     }
 }

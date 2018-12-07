@@ -1,10 +1,10 @@
-use config;
+use crate::config;
+use crate::layer::tcp::TCPTracker;
+use crate::packet::Packet;
+use std::num::Wrapping;
+use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread;
-use std::sync::mpsc;
-use packet::Packet;
-use std::num::Wrapping;
-use layer::tcp::TCPTracker;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 pub struct Dispatcher {
@@ -15,9 +15,14 @@ pub struct Dispatcher {
 
 impl Dispatcher {
     pub fn dispatch(&self, packet: Arc<Packet>) {
-        let hash = (Wrapping(packet.src_ip) + Wrapping(packet.src_port as u32) + Wrapping(packet.dst_ip) + Wrapping(packet.dst_port as u32))
+        let hash = (Wrapping(packet.src_ip)
+            + Wrapping(packet.src_port as u32)
+            + Wrapping(packet.dst_ip)
+            + Wrapping(packet.dst_port as u32))
             % Wrapping(self.n_threads as u32);
-        self.senders[hash.0 as usize].send(packet).expect("channel send error");
+        self.senders[hash.0 as usize]
+            .send(packet)
+            .expect("channel send error");
     }
 }
 
@@ -42,23 +47,32 @@ pub fn init(conf: Arc<config::Configure>) -> Arc<Dispatcher> {
                 match rx.recv_timeout(timeout) {
                     Ok(packet) => {
                         if packet.flag & Packet::TCP > 0 {
-                            trace!("{}:{} ->{}:{}", packet.src_ip_str(), packet.src_port, packet.dst_ip_str(), packet.dst_port);
+                            trace!(
+                                "{}:{} ->{}:{}",
+                                packet.src_ip_str(),
+                                packet.src_port,
+                                packet.dst_ip_str(),
+                                packet.dst_port
+                            );
                             TCPTracker::on_packet(&mut tcp_tracker, &packet)
                         }
                     }
-                    Err(e) => {
-                        match e {
-                            mpsc::RecvTimeoutError::Timeout => {
-                                let now = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_secs() * 1000 * 1000;
-                                tcp_tracker.cleanup_stream(now);
-                            }
-
-                            mpsc::RecvTimeoutError::Disconnected => {
-                                debug!("Disconnected");
-                                return;
-                            }
+                    Err(e) => match e {
+                        mpsc::RecvTimeoutError::Timeout => {
+                            let now = SystemTime::now()
+                                .duration_since(UNIX_EPOCH)
+                                .unwrap()
+                                .as_secs()
+                                * 1000
+                                * 1000;
+                            tcp_tracker.cleanup_stream(now);
                         }
-                    }
+
+                        mpsc::RecvTimeoutError::Disconnected => {
+                            debug!("Disconnected");
+                            return;
+                        }
+                    },
                 }
             }
         };

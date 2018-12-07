@@ -1,11 +1,9 @@
-use inet;
-use packet::Packet;
+use crate::inet;
+use crate::packet::Packet;
 use std::sync::Arc;
-
 
 // As defined by RFC 1982 - 2 ^ (SERIAL_BITS - 1)
 const SEQ_NUMBER_DIFF: u32 = 2147483648;
-
 
 fn seq_compare(seq1: u32, seq2: u32) -> i8 {
     if seq1 == seq2 {
@@ -25,7 +23,6 @@ fn seq_compare(seq1: u32, seq2: u32) -> i8 {
         }
     }
 }
-
 
 type DataCallback = Fn(&[u8]);
 
@@ -52,6 +49,7 @@ impl TcpFlow {
         if seq == self.next_seq {
             (*self.on_data)(payload);
             self.next_seq = seq + payload.len() as u32;
-        } else {}
+        } else {
+        }
     }
 }

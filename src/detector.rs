@@ -1,10 +1,11 @@
 use libc::c_char;
-use std::ffi::CStr;
-use std::sync::Arc;
-use config::Configure;
-use layer::tcp::dissector::{TCPDissectorAllocator, TCPDissector};
-use std::rc::Rc;
 use std::cell::RefCell;
+use std::ffi::CStr;
+use std::rc::Rc;
+use std::sync::Arc;
+
+use crate::config::Configure;
+use crate::layer::tcp::dissector::{TCPDissector, TCPDissectorAllocator};
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -273,34 +274,36 @@ impl Proto {
     }
 }
 
-
 #[link(name = "layerscpp")]
 #[link(name = "ndpi")]
 extern "C" {
-    pub fn ndpi_detection_process_packet(ctx: *const c_char,
-                                         flow: *const c_char,
-                                         packet: *const c_char,
-                                         packet_len: u16,
-                                         tm: u64,
-                                         src_id: *const c_char,
-                                         dst_id: *const c_char) -> Proto;
+    pub fn ndpi_detection_process_packet(
+        ctx: *const c_char,
+        flow: *const c_char,
+        packet: *const c_char,
+        packet_len: u16,
+        tm: u64,
+        src_id: *const c_char,
+        dst_id: *const c_char,
+    ) -> Proto;
 
     pub fn ndpi_detection_giveup(ctx: *const c_char, flow: *const c_char) -> Proto;
 
-    pub fn ndpi_guess_undetected_protocol(ctx: *const c_char,
-                                          proto: u8,
-                                          src_ip: u32,
-                                          src_port: u16,
-                                          dst_ip: u16,
-                                          dst_port: u16) -> Proto;
+    pub fn ndpi_guess_undetected_protocol(
+        ctx: *const c_char,
+        proto: u8,
+        src_ip: u32,
+        src_port: u16,
+        dst_ip: u16,
+        dst_port: u16,
+    ) -> Proto;
 
-
-
-    fn ndpi_protocol2name(ctx: *const c_char,
-                          proto: Proto,
-                          buf: *mut c_char,
-                          len: u32) -> *const c_char;
-
+    fn ndpi_protocol2name(
+        ctx: *const c_char,
+        proto: Proto,
+        buf: *mut c_char,
+        len: u32,
+    ) -> *const c_char;
 
     fn ndpi_get_http_url(ctx: *const c_char, flow: *const c_char) -> *const c_char;
 
@@ -312,11 +315,9 @@ extern "C" {
     pub fn new_ndpi_flow() -> *const c_char;
     pub fn free_ndpi_flow(ctx: *const c_char);
 
-
     pub fn new_ndpi_flow_id() -> *const c_char;
     pub fn free_ndpi_flow_id(ctx: *const c_char);
 }
-
 
 pub struct Detector {
     ctx: *const c_char,
@@ -332,17 +333,26 @@ impl Detector {
         }
     }
 
-
     #[inline]
-    pub fn detect(&self,
-                  flow: *const c_char,
-                  ip_layer: *const c_char,
-                  ip_layer_len: u16,
-                  tm: u64,
-                  src_id: *const c_char,
-                  dst_id: *const c_char) -> Proto {
+    pub fn detect(
+        &self,
+        flow: *const c_char,
+        ip_layer: *const c_char,
+        ip_layer_len: u16,
+        tm: u64,
+        src_id: *const c_char,
+        dst_id: *const c_char,
+    ) -> Proto {
         unsafe {
-            ndpi_detection_process_packet(self.ctx, flow, ip_layer as *const c_char, ip_layer_len, tm, src_id, dst_id)
+            ndpi_detection_process_packet(
+                self.ctx,
+                flow,
+                ip_layer as *const c_char,
+                ip_layer_len,
+                tm,
+                src_id,
+                dst_id,
+            )
         }
     }
 
@@ -356,29 +366,34 @@ impl Detector {
         c_str.to_string_lossy().into_owned()
     }
 
-    pub fn alloc_tcp_dissector(&self, proto: &Proto, detector: Rc<Detector>, flow: *const c_char) -> Rc<RefCell<TCPDissector>> {
-        self.tcp_dissector_allocator.alloc_dissector(proto, detector, flow)
+    pub fn alloc_tcp_dissector(
+        &self,
+        proto: &Proto,
+        detector: Rc<Detector>,
+        flow: *const c_char,
+    ) -> Rc<RefCell<TCPDissector>> {
+        self.tcp_dissector_allocator
+            .alloc_dissector(proto, detector, flow)
     }
 
     pub fn get_http_url(&self, flow: *const c_char) -> String {
         let c_str;
         unsafe {
-             c_str =  CStr::from_ptr(ndpi_get_http_url(self.ctx, flow) as *const c_char);
+            c_str = CStr::from_ptr(ndpi_get_http_url(self.ctx, flow) as *const c_char);
         }
 
         c_str.to_string_lossy().into_owned()
     }
 
-    pub fn get_http_content_type(&self, flow: *const c_char) ->String {
+    pub fn get_http_content_type(&self, flow: *const c_char) -> String {
         let c_str;
         unsafe {
-            c_str =  CStr::from_ptr(ndpi_get_http_content_type(self.ctx, flow) as *const c_char);
+            c_str = CStr::from_ptr(ndpi_get_http_content_type(self.ctx, flow) as *const c_char);
         }
 
         c_str.to_string_lossy().into_owned()
     }
 }
-
 
 impl Drop for Detector {
     fn drop(&mut self) {

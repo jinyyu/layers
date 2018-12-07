@@ -1,11 +1,10 @@
+use crate::inet;
+use crate::layer::IPProto;
+use crate::layer::{EthernetHeader, EthernetType, IPV4Header, TCPHeader};
+use std::mem;
+use std::ptr;
 use std::slice;
 use std::sync::Arc;
-use layer::*;
-use layer::tcp::tcp::TCPHeader;
-use inet;
-use std::ptr;
-use std::mem;
-use layer;
 
 pub struct Packet {
     pub flag: u8,
@@ -28,13 +27,11 @@ pub struct Packet {
 
     _payload: *const u8,
     _payload_len: usize,
-
 }
 
 unsafe impl Send for Packet {}
 
 unsafe impl Sync for Packet {}
-
 
 impl Packet {
     pub const BAD_PACKET: u8 = (0x01 << 0);
@@ -51,7 +48,6 @@ impl Packet {
     pub const IPV6TCP: u8 = Packet::IPV6 | Packet::TCP;
     pub const IPV4UDP: u8 = Packet::IPV4 | Packet::UDP;
     pub const IPV6UDP: u8 = Packet::IPV6 | Packet::UDP;
-
 
     pub fn valid(&self) -> bool {
         return self.flag & Packet::BAD_PACKET == 0;
@@ -81,11 +77,8 @@ impl Packet {
 
     pub fn tcp_payload(&self) -> &[u8] {
         assert!(self.flag & Packet::TCP_OR_UDP > 0);
-        unsafe {
-            slice::from_raw_parts(self._payload, self._payload_len)
-        }
+        unsafe { slice::from_raw_parts(self._payload, self._payload_len) }
     }
-
 
     pub fn new(timestamp: u64, data: *const u8, size: usize) -> Arc<Packet> {
         let array = unsafe { slice::from_raw_parts(data, size) };
@@ -132,12 +125,14 @@ impl Packet {
                     self.decode_ipv4(offset, left);
                 }
                 _ => {
-                    debug!("ethernet type {}", EthernetType::ethernet_type_string(eth_type));
+                    debug!(
+                        "ethernet type {}",
+                        EthernetType::ethernet_type_string(eth_type)
+                    );
                 }
             }
         }
     }
-
 
     fn decode_ipv4(&mut self, offset: usize, left: usize) {
         assert!(self.flag & Packet::IPV4 > 0);
@@ -168,7 +163,7 @@ impl Packet {
                 return;
             }
 
-            let proto = layer::IPProto((*ip).proto);
+            let proto = IPProto((*ip).proto);
 
             match proto {
                 IPProto::TCP => {
@@ -190,7 +185,6 @@ impl Packet {
             self.tcp = tcp;
             self.src_port = inet::ntohs((*tcp).sport);
             self.dst_port = inet::ntohs((*tcp).dport);
-
 
             let header_len = (*self.tcp).header_len() as usize;
             if left < header_len {
