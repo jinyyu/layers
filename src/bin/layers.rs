@@ -11,7 +11,7 @@ extern crate argparse;
 extern crate env_logger;
 extern crate layers;
 
-use crate::layers::*;
+use layers::*;
 
 struct Main {
     dispatcher: Arc<dispatcher::Dispatcher>,

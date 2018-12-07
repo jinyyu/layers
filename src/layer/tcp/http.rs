@@ -21,9 +21,9 @@ impl HTTPDissector {
 
 impl TCPDissector for HTTPDissector {
     fn on_client_data(&mut self, data: &[u8]) {
-        trace!("http client data {}", data.len());
+        debug!("http client data {}", data.len());
     }
     fn on_server_data(&mut self, data: &[u8]) {
-        trace!("http server data {}", data.len());
+        debug!("http server data {}", data.len());
     }
 }

@@ -64,7 +64,6 @@ impl Proto {
     pub const FREE_44: u16 = 44;
     pub const FREE_45: u16 = 45;
     pub const FREE_46: u16 = 46;
-
     pub const XBOX: u16 = 47;
     pub const QQ: u16 = 48;
     pub const SKYPE_CALL_IN: u16 = 49;

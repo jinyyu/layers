@@ -13,3 +13,11 @@ fn test() {
         println!("{}-{}", item.0, item.1);
     }
 }
+
+#[test]
+fn test_borrow() {
+    let mut abc = 1;
+    let def = &abc;
+
+    let &kkk = &abc;
+}

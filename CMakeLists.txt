@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.5)
-project(layers-distribution)
+project(layers)
 
 install(DIRECTORY ${CMAKE_SOURCE_DIR}/etc DESTINATION /)
 

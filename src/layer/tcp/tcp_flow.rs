@@ -1,6 +1,7 @@
 use crate::inet;
 use crate::packet::Packet;
 use std::sync::Arc;
+use std::vec::Vec;
 
 // As defined by RFC 1982 - 2 ^ (SERIAL_BITS - 1)
 const SEQ_NUMBER_DIFF: u32 = 2147483648;
@@ -28,14 +29,16 @@ type DataCallback = Fn(&[u8]);
 
 pub struct TcpFlow {
     next_seq: u32,
-    on_data: Box<DataCallback>,
+    on_data_callback: Box<DataCallback>,
+    buffered_payload: Vec<u8>,
 }
 
 impl TcpFlow {
     pub fn new(packet: &Arc<Packet>, on_data: Box<DataCallback>) -> TcpFlow {
         TcpFlow {
             next_seq: unsafe { inet::ntohl((*packet.tcp).seq) + 1 },
-            on_data,
+            on_data_callback: on_data,
+            buffered_payload: Vec::new(),
         }
     }
 
@@ -45,11 +48,17 @@ impl TcpFlow {
             return;
         }
         let seq = unsafe { inet::ntohl((*packet.tcp).seq) };
+        let chunk_end = seq + payload.len() as u32;
+
+        if seq_compare(chunk_end, self.next_seq) < 0 {
+            debug!("skip data");
+            return;
+        }
 
         if seq == self.next_seq {
-            (*self.on_data)(payload);
+            (*self.on_data_callback)(payload);
             self.next_seq = seq + payload.len() as u32;
-        } else {
+            return;
         }
     }
 }

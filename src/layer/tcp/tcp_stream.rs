@@ -1,6 +1,6 @@
 use crate::detector;
 use crate::layer::dissector;
-use crate::layer::flow::TcpFlow;
+use crate::layer::tcp_flow::TcpFlow;
 use crate::packet::Packet;
 use libc::c_char;
 use std::cell::RefCell;
