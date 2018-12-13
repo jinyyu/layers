@@ -2,7 +2,6 @@ use crate::config;
 use crate::packet::Packet;
 use libc::{c_char, c_int, c_uint};
 use std::ffi::CString;
-use std::mem;
 use std::sync::Arc;
 
 #[repr(C)]
@@ -32,17 +31,15 @@ extern "C" fn loop_callback(ctx: *mut c_char, packet: *const PacketHeader, bytes
         if !p.valid() {
             debug!("invalid packet 0b{:b}", p.flag);
         } else {
-            let ctx = mem::transmute::<*mut c_char, *mut &Fn(Arc<Packet>)>(ctx);
-            (*ctx)(p);
+            let callback = ctx as *const &Fn(Arc<Packet>);
+            (*callback)(p);
         }
     };
 }
 
 //pfring
-//#[link(name = "pcap", kind = "static")]
-//#[link(name = "pfring", kind = "static")]
-
 #[link(name = "pcap")]
+#[link(name = "pfring")]
 extern "C" {
     fn pcap_create(_device: *const c_char, _error: *mut c_char) -> *const c_char;
     fn pcap_set_snaplen(_handle: *const c_char, _snaplen: c_int) -> c_int;
@@ -54,20 +51,19 @@ extern "C" {
         _handle: *const c_char,
         _count: c_int,
         _cb: extern "C" fn(ctx: *mut c_char, *const PacketHeader, *const c_char),
-        _ctx: *mut c_char,
+        _ctx: *const c_char,
     ) -> c_int;
 }
 
 impl DAQ {
     pub fn run(&self, cb: &Fn(Arc<Packet>)) {
-        let mut callback = Box::new(cb);
-        info!("pcap start");
+        info!("pcap_loop");
         unsafe {
             pcap_loop(
                 self.handle,
                 -1,
                 loop_callback,
-                mem::transmute::<*mut &Fn(Arc<Packet>), *mut c_char>(&mut *callback),
+                &cb as *const &Fn(Arc<Packet>) as *const c_char,
             );
         }
         info!("pcap_loop exit ");
