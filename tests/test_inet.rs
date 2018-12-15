@@ -2,15 +2,34 @@ use std::collections::HashMap;
 
 #[test]
 fn test() {
-    let mut map: HashMap<u32, &str> = HashMap::new();
-    map.insert(1, "one");
-    map.insert(2, "two");
-    map.insert(3, "three");
+    let mut map: HashMap<u32, Vec<u8>> = HashMap::new();
+    map.insert(1, Vec::new());
+    map.insert(2, Vec::new());
+    map.insert(3, Vec::new());
 
-    map.retain(|k, v| k % 2 != 0);
+    {
+        let mut iter = map.iter_mut();
+
+        loop {
+            match iter.next() {
+                None => {
+                    break;
+                }
+                Some(item) => {
+                    let abc = item.0;
+                    let def = item.1;
+                    def.insert(0, 1);
+                }
+            }
+        }
+    }
 
     for item in map.iter() {
-        println!("{}-{}", item.0, item.1);
+        println!(
+            "<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<{}-{}",
+            item.0,
+            item.1.len()
+        );
     }
 }
 

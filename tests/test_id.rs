@@ -23,3 +23,14 @@ fn test_id() {
     assert_eq!(b[&17], "d");
     assert_eq!(b[&41], "e");
 }
+
+#[test]
+fn test_slice() {
+    let s = String::from("123456");
+
+    let len = s.len();
+
+    let slice = &s[3..];
+
+    println!("---------------------------------------{}", slice)
+}

@@ -1,64 +1,67 @@
 use crate::inet;
 use crate::packet::Packet;
+use libc::c_char;
 use std::sync::Arc;
-use std::vec::Vec;
+use std::ptr;
 
-// As defined by RFC 1982 - 2 ^ (SERIAL_BITS - 1)
-const SEQ_NUMBER_DIFF: u32 = 2147483648;
-
-fn seq_compare(seq1: u32, seq2: u32) -> i8 {
-    if seq1 == seq2 {
-        return 0;
-    }
-    if seq1 < seq2 {
-        if seq2 - seq1 < SEQ_NUMBER_DIFF {
-            return -1;
-        } else {
-            return 1;
-        }
-    } else {
-        if seq1 - seq2 > SEQ_NUMBER_DIFF {
-            return -1;
-        } else {
-            return 1;
-        }
-    }
+#[link(name = "layerscpp")]
+extern "C" {
+    fn new_tcp_data_tracker(_seq: u32) -> *const c_char;
+    fn tcp_data_tracker_set_callback(_tracker: *const c_char, _ctx: *const c_char, _cb: extern "C" fn(*const c_char, *const c_char, u32));
+    fn tcp_data_tracker_process_data(_tracker: *const c_char, _data: *const c_char, _len: u32);
+    fn free_tcp_data_tracker(_tracker: *const c_char);
 }
 
 type DataCallback = Fn(&[u8]);
 
 pub struct TcpFlow {
-    next_seq: u32,
     on_data_callback: Box<DataCallback>,
-    buffered_payload: Vec<u8>,
+    tracker_: *const c_char,
+}
+
+
+extern "C" fn on_data_callback(ctx: *const c_char, data: *const c_char, len: u32) {
+    unsafe {
+        debug!("-----------------------{}", len);
+    };
 }
 
 impl TcpFlow {
     pub fn new(packet: &Arc<Packet>, on_data: Box<DataCallback>) -> TcpFlow {
-        TcpFlow {
-            next_seq: unsafe { inet::ntohl((*packet.tcp).seq) + 1 },
-            on_data_callback: on_data,
-            buffered_payload: Vec::new(),
+        unsafe {
+            let flow = TcpFlow {
+                on_data_callback: on_data,
+                tracker_: new_tcp_data_tracker(inet::ntohl((*packet.tcp).seq) + 1),
+            };
+
+            let ptr = &flow as *const TcpFlow as *const c_char;
+            tcp_data_tracker_set_callback(flow.tracker_, ptr, on_data_callback);
+
+            return flow;
         }
     }
 
-    pub fn handle_packet(&mut self, packet: &Arc<Packet>) {
+    pub fn process_packet(&mut self, packet: &Arc<Packet>) {
         let payload = packet.tcp_payload();
         if payload.len() == 0 {
             return;
         }
-        let seq = unsafe { inet::ntohl((*packet.tcp).seq) };
-        let chunk_end = seq + payload.len() as u32;
-
-        if seq_compare(chunk_end, self.next_seq) < 0 {
-            debug!("skip data");
-            return;
-        }
-
-        if seq == self.next_seq {
-            (*self.on_data_callback)(payload);
-            self.next_seq = seq + payload.len() as u32;
-            return;
+        unsafe {
+            tcp_data_tracker_process_data(
+                self.tracker_,
+                payload.as_ptr() as *const c_char,
+                payload.len() as u32,
+            );
         }
     }
 }
+
+
+impl Drop for TcpFlow {
+    fn drop(&mut self) {
+        unsafe {
+            //free_tcp_data_tracker(self.tracker_);
+        }
+    }
+}
+

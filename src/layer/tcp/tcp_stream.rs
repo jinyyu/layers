@@ -250,12 +250,12 @@ impl TCPStream {
                     };
                     f = TcpFlow::new(packet, Box::new(cb));
                 }
-                f.handle_packet(packet);
+                f.process_packet(packet);
 
                 *flow = Some(f);
             }
             Some(ref mut flow) => {
-                flow.handle_packet(packet);
+                flow.process_packet(packet);
             }
         }
     }
