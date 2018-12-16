@@ -84,8 +84,8 @@ pub struct TCPStream {
 
     pending_packets: VecDeque<Arc<Packet>>,
 
-    client_flow: Option<TcpFlow>,
-    server_flow: Option<TcpFlow>,
+    client_flow: Option<Box<TcpFlow>>,
+    server_flow: Option<Box<TcpFlow>>,
 
     dissector: Rc<RefCell<dissector::TCPDissector>>,
 }
