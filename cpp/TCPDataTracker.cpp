@@ -105,21 +105,6 @@ public:
         }
     }
 
-    void store_payload(uint32_t seq, Payload payload)
-    {
-        auto iter = buffer_payload_.find(seq);
-        // New segment, store it
-        if (iter == buffer_payload_.end()) {
-            buffer_payload_.insert(make_pair(seq, move(payload)));
-        }
-        else if (iter->second.size() < payload.size()) {
-            // Increment by the diff between sizes
-            // If we already have payload on this position but it's a shorter
-            // chunk than the new one, replace it
-            iter->second = move(payload);
-        }
-    }
-
     BufferPayload::iterator erase_iterator(BufferPayload::iterator iter)
     {
         auto output = iter;
