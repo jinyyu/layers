@@ -13,13 +13,12 @@ extern "C" {
         flow: *const c_char,
         _cb: extern "C" fn(*const c_char, *const c_char, u32),
     );
-    fn tcp_data_tracker_process_data(_tracker: *const c_char, _data: *const c_char, _len: u32);
+    fn tcp_data_tracker_process_data(_tracker: *const c_char, _seq: u32, _data: *const c_char, _len: u32);
     fn free_tcp_data_tracker(_tracker: *const c_char);
 }
 
 type DataCallback = Fn(&[u8]);
 
-#[repr(C)]
 pub struct TcpFlow {
     on_data_callback: Box<DataCallback>,
     tracker_: *const c_char,
@@ -56,6 +55,7 @@ impl TcpFlow {
         unsafe {
             tcp_data_tracker_process_data(
                 self.tracker_,
+                inet::ntohl((*packet.tcp).seq),
                 payload.as_ptr() as *const c_char,
                 payload.len() as u32,
             );
