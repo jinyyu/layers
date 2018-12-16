@@ -63,7 +63,7 @@ public:
         while (it != buffer_payload_.end() && seq_compare(it->first, next_seq_) <= 0) {
             // Does this fragment start before our sequence number?
             if (seq_compare(it->first, next_seq_) < 0) {
-                uint32_t fragment_end = it->first + it->second.size();
+                uint32_t fragment_end = it->first + static_cast<uint32_t>(it->second.size());
                 int comparison = seq_compare(fragment_end, next_seq_);
                 // Does it end after our sequence number?
                 if (comparison > 0) {
@@ -84,7 +84,7 @@ public:
                 }
             }
             else {
-                cb_(ctx_, (const char*) it->second.data(), it->second.size());
+                cb_(ctx_, (const char*) it->second.data(), static_cast<uint32_t>(it->second.size()));
                 next_seq_ += it->second.size();
                 it = erase_iterator(it);
             }
