@@ -11,6 +11,8 @@ set(SRC
     cpp/checksum.cpp
     cpp/detector.cpp
     cpp/TCPDataTracker.cpp
+    cpp/http_parser.c
+    cpp/HTTPParser.cpp
     )
 
 add_library(layerscpp SHARED ${SRC})

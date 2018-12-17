@@ -39,7 +39,7 @@ extern "C" fn loop_callback(ctx: *mut c_char, packet: *const PacketHeader, bytes
 
 //pfring
 #[link(name = "pcap")]
-#[link(name = "pfring")]
+//#[link(name = "pfring")]
 extern "C" {
     fn pcap_create(_device: *const c_char, _error: *mut c_char) -> *const c_char;
     fn pcap_set_snaplen(_handle: *const c_char, _snaplen: c_int) -> c_int;
