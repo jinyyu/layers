@@ -79,6 +79,8 @@ fn main() {
 
     let conf = config::load(configure);
     Main::setup_workspace(conf.clone());
+    layers::mime::MimeParser::init();
+
 
     let app = Main::new(conf);
     app.run();

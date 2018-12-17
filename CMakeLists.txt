@@ -11,7 +11,6 @@ set(SRC
     cpp/checksum.cpp
     cpp/detector.cpp
     cpp/TCPDataTracker.cpp
-    cpp/MimeParser.cpp
     )
 
 add_library(layerscpp SHARED ${SRC})
@@ -23,12 +22,4 @@ pkg_check_modules(NDPI libndpi>=2.4.0 REQUIRED)
 include_directories(${NDPI_INCLUDE_DIRS})
 set(LIBS ${LIBS} libndpi.so)
 
-pkg_check_modules(GMIME gmime-3.0>=3.0 REQUIRED)
-include_directories(${GMIME_INCLUDE_DIRS})
-set(LIBS ${LIBS} GMIME_LIBRARIES)
-
 add_executable(main cpp/main.cpp)
-
-
-
-
