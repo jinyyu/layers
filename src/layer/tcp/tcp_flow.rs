@@ -1,5 +1,6 @@
 use crate::inet;
 use crate::packet::Packet;
+use layer::tcp::TCPHeader;
 use libc::c_char;
 use std::mem;
 use std::slice;
@@ -13,7 +14,14 @@ extern "C" {
         flow: *const c_char,
         _cb: extern "C" fn(*const c_char, *const c_char, u32),
     );
-    fn tcp_data_tracker_process_data(_tracker: *const c_char, _seq: u32, _data: *const c_char, _len: u32);
+
+    fn tcp_data_tracker_update_seq(_tracker: *const c_char, _seq: u32);
+    fn tcp_data_tracker_process_data(
+        _tracker: *const c_char,
+        _seq: u32,
+        _data: *const c_char,
+        _len: u32,
+    );
     fn free_tcp_data_tracker(_tracker: *const c_char);
 }
 
@@ -48,6 +56,13 @@ impl TcpFlow {
     }
 
     pub fn process_packet(&mut self, packet: &Arc<Packet>) {
+        unsafe {
+            if (*packet.tcp).flags & TCPHeader::SYN > 0 {
+                let seq = inet::ntohl((*packet.tcp).seq);
+                tcp_data_tracker_update_seq(self.tracker_, seq);
+            }
+        }
+
         let payload = packet.tcp_payload();
         if payload.len() == 0 {
             return;

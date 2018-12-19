@@ -2,10 +2,10 @@ use crate::detector::Detector;
 use crate::layer::TCPDissector;
 use libc::c_char;
 use std::cell::RefCell;
-use std::rc::Rc;
-use std::vec;
 use std::fs::File;
 use std::io::prelude::*;
+use std::rc::Rc;
+use std::vec;
 
 pub struct HTTPDissector {
     detector: Rc<Detector>,
@@ -18,7 +18,7 @@ impl HTTPDissector {
         let http = HTTPDissector {
             detector,
             flow,
-            buffer: Vec::new()
+            buffer: Vec::new(),
         };
 
         debug!("http request {}", http.detector.get_http_url(http.flow));
@@ -27,7 +27,7 @@ impl HTTPDissector {
     }
 }
 
-impl Drop for HTTPDissector{
+impl Drop for HTTPDissector {
     fn drop(&mut self) {
         let mut file = File::create("/tmp/foo.txt").unwrap();
         let result = file.write(self.buffer.as_slice());

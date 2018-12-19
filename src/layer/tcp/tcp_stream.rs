@@ -39,14 +39,13 @@ pub struct TCPHeader {
     pub urp: u16,
 }
 
-#[allow(dead_code)]
 impl TCPHeader {
-    const FIN: u8 = 0x01;
-    const SYN: u8 = 0x02;
-    const RST: u8 = 0x04;
-    const PUSH: u8 = 0x08;
-    const ACK: u8 = 0x10;
-    const URG: u8 = 0x20;
+    pub const FIN: u8 = 0x01;
+    pub const SYN: u8 = 0x02;
+    pub const RST: u8 = 0x04;
+    pub const PUSH: u8 = 0x08;
+    pub const ACK: u8 = 0x10;
+    pub const URG: u8 = 0x20;
 
     pub fn header_len(&self) -> u8 {
         return (self.off & 0xf0) >> 2;

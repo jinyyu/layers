@@ -55,8 +55,15 @@ public:
             len -= diff;
             seq = next_seq_;
         }
-        // Store this payload
-        store_payload(seq, data, len);
+        if (seq == next_seq_) {
+            cb_(ctx_, data, len);
+            next_seq_ += len;
+
+        } else {
+            // Store this payload
+            store_payload(seq, data, len);
+        }
+
 
         // Keep looping while the fragments seq is lower or equal to our seq
         auto it = buffer_payload_.find(next_seq_);
@@ -122,6 +129,11 @@ public:
         cb_ = cb;
     }
 
+    void update_seq(uint32_t seq)
+    {
+        next_seq_ = seq;
+    }
+
 private:
     uint32_t next_seq_;
     void* ctx_;
@@ -143,6 +155,11 @@ void free_tcp_data_tracker(void* tracker)
 void tcp_data_tracker_set_callback(void* tracker, void* ctx, on_data_callback cb)
 {
     ((TCPDataTracker*) tracker)->set_callback(ctx, cb);
+}
+
+void tcp_data_tracker_update_seq(void* tracker, uint32_t seq)
+{
+    ((TCPDataTracker*) tracker)->update_seq(seq);
 }
 
 void tcp_data_tracker_process_data(void* tracker, uint32_t seq, const char* data, uint32_t len)
