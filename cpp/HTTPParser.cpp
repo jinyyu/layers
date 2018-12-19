@@ -9,7 +9,8 @@
 class HTTPParser
 {
 public:
-    explicit HTTPParser()
+    explicit HTTPParser(void* ctx)
+        : ctx_(ctx)
     {
         memset(&request_parser_, 0, sizeof(request_parser_));
         http_parser_init(&request_parser_, HTTP_REQUEST);
@@ -27,6 +28,7 @@ public:
 
 
 private:
+    void* ctx_;
     http_parser request_parser_;
     http_parser response_parser_;
 
@@ -106,39 +108,20 @@ static http_parser_settings g_request;
 
 static http_parser_settings g_response;
 
-class HttpInitHelper
+void init_http_parser_setting(struct http_parser_settings request, struct http_parser_settings response)
 {
-public:
-    explicit HttpInitHelper()
-    {
-        LOG_DEBUG("init http parser");
-        g_request.on_message_begin = on_request_message_begin;
-        g_request.on_url = on_url;
-        g_request.on_status = nullptr;
-        g_request.on_header_field = on_request_header_field;
-        g_request.on_header_value = on_request_header_value;
-        g_request.on_headers_complete = on_request_headers_complete;
-        g_request.on_body = on_request_body;
-        g_request.on_message_complete = on_request_message_complete;
-        g_request.on_chunk_header = nullptr;
-        g_request.on_chunk_complete = nullptr;
-
-        g_response.on_message_begin = on_response_message_begin;
-        g_response.on_url = nullptr;
-        g_response.on_status = on_status;
-        g_response.on_header_field = on_response_header_field;
-        g_response.on_header_value = on_response_header_value;
-        g_response.on_headers_complete = on_response_headers_complete;
-        g_response.on_body = on_response_body;
-        g_response.on_message_complete = on_response_message_complete;
-        g_response.on_chunk_header = nullptr;
-        g_response.on_chunk_complete = nullptr;
-    }
-};
-
-static HttpInitHelper once;
-
-void* new_http_parser()
-{
-
+    g_request = request;
+    g_response = response;
 }
+
+void* new_http_parser(void* ctx)
+{
+    return new HTTPParser(ctx);
+}
+
+void free_http_parser(void* parser)
+{
+    delete ((HTTPParser*) parser);
+}
+
+
