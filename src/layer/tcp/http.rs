@@ -232,6 +232,7 @@ impl TCPDissector for HTTPDissector {
         debug!("http client data {}", data.len());
     }
     fn on_server_data(&mut self, data: &[u8]) {
+        debug!("http server data {}", data.len());
         unsafe {
             http_parser_execute_response(
                 self.parser,

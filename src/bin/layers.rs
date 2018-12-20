@@ -79,7 +79,7 @@ fn main() {
 
     let conf = config::load(configure);
     Main::setup_workspace(conf.clone());
-
+    layer::HTTPDissector::init();
     let app = Main::new(conf);
     app.run();
 }

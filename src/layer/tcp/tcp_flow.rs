@@ -59,7 +59,7 @@ impl TcpFlow {
         unsafe {
             if (*packet.tcp).flags & TCPHeader::SYN > 0 {
                 let seq = inet::ntohl((*packet.tcp).seq);
-                tcp_data_tracker_update_seq(self.tracker_, seq);
+                tcp_data_tracker_update_seq(self.tracker_, seq + 1);
             }
         }
 

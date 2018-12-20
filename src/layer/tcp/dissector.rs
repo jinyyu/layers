@@ -41,7 +41,6 @@ impl TCPDissectorAllocator {
         };
 
         if conf.is_dissector_enable("http") {
-            HTTPDissector::init();
             let cb = HTTPDissector::new;
             allocator.protocol.insert(Proto::HTTP, cb);
             allocator.protocol.insert(Proto::HTTP_ACTIVESYNC, cb);

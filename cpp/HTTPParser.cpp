@@ -28,6 +28,7 @@ public:
 
     size_t execute_response(const char* data, size_t len)
     {
+        LOG_DEBUG("===================%s", data);
         return http_parser_execute(&request_parser_, &g_response, data, len);
     }
 
@@ -44,8 +45,10 @@ private:
 
 void init_http_parser_setting(struct http_parser_settings request, struct http_parser_settings response)
 {
+    LOG_DEBUG("init http parser");
     g_request = request;
     g_response = response;
+    response.on_message_complete(NULL);
 }
 
 void* new_http_parser(void* ctx)
