@@ -21,5 +21,5 @@ struct Parser {
 
 int main()
 {
-    fprintf(stderr, "%d", sizeof(Parser));
+    fprintf(stderr, "%lu", sizeof(Parser));
 }

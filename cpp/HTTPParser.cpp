@@ -3,22 +3,32 @@
 #include "debug_log.h"
 
 
-#define PARSE_OK (0)
-#define PARSE_ERROR (1)
+static http_parser_settings g_request;
+
+static http_parser_settings g_response;
 
 class HTTPParser
 {
 public:
     explicit HTTPParser(void* ctx)
-        : ctx_(ctx)
     {
         memset(&request_parser_, 0, sizeof(request_parser_));
         http_parser_init(&request_parser_, HTTP_REQUEST);
-        request_parser_.data = this;
+        request_parser_.data = ctx;
 
         memset(&response_parser_, 0, sizeof(response_parser_));
         http_parser_init(&response_parser_, HTTP_RESPONSE);
-        response_parser_.data = this;
+        response_parser_.data = ctx;
+    }
+
+    size_t execute_request(const char* data, size_t len)
+    {
+        return http_parser_execute(&request_parser_, &g_request, data, len);
+    }
+
+    size_t execute_response(const char* data, size_t len)
+    {
+        return http_parser_execute(&request_parser_, &g_response, data, len);
     }
 
     ~HTTPParser()
@@ -26,87 +36,11 @@ public:
 
     }
 
-
 private:
-    void* ctx_;
     http_parser request_parser_;
     http_parser response_parser_;
 
 };
-
-static int on_request_message_begin(http_parser*)
-{
-    return PARSE_OK;
-}
-
-static int on_url(http_parser*, const char* at, size_t length)
-{
-    return PARSE_OK;
-}
-
-static int on_request_header_field(http_parser*, const char* at, size_t length)
-{
-    return PARSE_OK;
-}
-
-static int on_request_header_value(http_parser*, const char* at, size_t length)
-{
-    return PARSE_OK;
-}
-
-static int on_request_headers_complete(http_parser*)
-{
-    return PARSE_OK;
-}
-
-static int on_request_body(http_parser*, const char* at, size_t length)
-{
-    return PARSE_OK;
-}
-
-static int on_request_message_complete(http_parser*)
-{
-    return PARSE_OK;
-}
-
-static int on_response_message_begin(http_parser*)
-{
-    return PARSE_OK;
-}
-
-static int on_status(http_parser*, const char* at, size_t length)
-{
-    return PARSE_OK;
-}
-
-static int on_response_header_field(http_parser*, const char* at, size_t length)
-{
-    return PARSE_OK;
-}
-
-static int on_response_header_value(http_parser*, const char* at, size_t length)
-{
-    return PARSE_OK;
-}
-
-static int on_response_headers_complete(http_parser*)
-{
-    return PARSE_OK;
-}
-
-static int on_response_body(http_parser*, const char* at, size_t length)
-{
-    return PARSE_OK;
-}
-
-static int on_response_message_complete(http_parser*)
-{
-    return PARSE_OK;
-}
-
-static http_parser_settings g_request;
-
-static http_parser_settings g_response;
 
 void init_http_parser_setting(struct http_parser_settings request, struct http_parser_settings response)
 {
@@ -117,6 +51,16 @@ void init_http_parser_setting(struct http_parser_settings request, struct http_p
 void* new_http_parser(void* ctx)
 {
     return new HTTPParser(ctx);
+}
+
+size_t http_parser_execute_request(void* parser, const char* data, size_t len)
+{
+    return ((HTTPParser*) parser)->execute_request(data, len);
+}
+
+size_t http_parser_execute_response(void* parser, const char* data, size_t len)
+{
+    return ((HTTPParser*) parser)->execute_response(data, len);
 }
 
 void free_http_parser(void* parser)
