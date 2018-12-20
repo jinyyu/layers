@@ -1,8 +1,7 @@
 #ifndef LAYERS_HTTPPARSER_H
 #define LAYERS_HTTPPARSER_H
+#include "http_parser.h"
 
-
-#include <glob.h>
 #ifdef __cplusplus
 extern "C"
 {

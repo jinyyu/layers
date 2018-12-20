@@ -12,11 +12,9 @@ class HTTPParser
 public:
     explicit HTTPParser(void* ctx)
     {
-        memset(&request_parser_, 0, sizeof(request_parser_));
         http_parser_init(&request_parser_, HTTP_REQUEST);
         request_parser_.data = ctx;
 
-        memset(&response_parser_, 0, sizeof(response_parser_));
         http_parser_init(&response_parser_, HTTP_RESPONSE);
         response_parser_.data = ctx;
     }
@@ -46,9 +44,8 @@ private:
 void init_http_parser_setting(struct http_parser_settings request, struct http_parser_settings response)
 {
     LOG_DEBUG("init http parser");
-    g_request = request;
-    g_response = response;
-    response.on_message_complete(NULL);
+    memcpy(&g_request, &request, sizeof(request));
+    memcpy(&g_response, &response, sizeof(response));
 }
 
 void* new_http_parser(void* ctx)

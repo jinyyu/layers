@@ -217,6 +217,10 @@ impl HTTPDissector {
 impl Drop for HTTPDissector {
     fn drop(&mut self) {
         unsafe { free_http_parser(self.parser) };
+
+        let mut file = File::create("/tmp/foo.txt").unwrap();
+        let result = file.write(self.buffer.as_slice());
+        result.unwrap();
     }
 }
 
@@ -232,6 +236,8 @@ impl TCPDissector for HTTPDissector {
         debug!("http client data {}", data.len());
     }
     fn on_server_data(&mut self, data: &[u8]) {
+        self.buffer.extend_from_slice(data);
+
         debug!("http server data {}", data.len());
         unsafe {
             http_parser_execute_response(
