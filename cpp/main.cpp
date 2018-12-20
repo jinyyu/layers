@@ -2,6 +2,7 @@
 #include <string.h>
 #include <malloc.h>
 #include "http_parser.h"
+#include "HTTPParser.h"
 
 int on_message_begin1(http_parser *parser)
 {
@@ -56,6 +57,9 @@ int main(int argc, char* argv[])
     settings.on_header_value      = fake2;
     settings.on_body              = fake2;
 
+
+
+
     http_parser_init(&parser, HTTP_RESPONSE);
 
     FILE* fp = fopen("/tmp/foo.txt", "r");
@@ -63,9 +67,25 @@ int main(int argc, char* argv[])
     int n = fread(buffer, 1, 10240, fp);
     fprintf(stderr, "=============%d", n);
 
-    size_t ret = http_parser_execute(&parser, &settings, buffer,n);
-    enum http_errno err = HTTP_PARSER_ERRNO(&parser);
-    printf("strlen=%zu ret=%zu errno=%d errstr=%s\n", strlen(input), ret, err,http_errno_name(err));
+
+
+    init_http_parser_setting(settings, settings);
+    void* p = new_http_parser(NULL);
+    size_t ret = http_parser_execute_response(p, buffer, n);
+    fprintf(stderr, "=================%d, %d, %s", ret, n, http_parser_get_response_error(p));
+
+
+    return 0;
+    {
+
+        size_t ret = http_parser_execute(&parser, &settings, buffer, n);
+        enum http_errno err = HTTP_PARSER_ERRNO(&parser);
+        printf("strlen=%zu ret=%zu errno=%d errstr=%s\n", strlen(input), ret, err, http_errno_name(err));
+    }
+
+
+
+
 
 
 

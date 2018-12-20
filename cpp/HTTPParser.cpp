@@ -26,8 +26,7 @@ public:
 
     size_t execute_response(const char* data, size_t len)
     {
-        LOG_DEBUG("===================%s", data);
-        return http_parser_execute(&request_parser_, &g_response, data, len);
+        return http_parser_execute(&response_parser_, &g_response, data, len);
     }
 
     ~HTTPParser()
@@ -35,7 +34,7 @@ public:
 
     }
 
-private:
+public:
     http_parser request_parser_;
     http_parser response_parser_;
 
@@ -61,6 +60,16 @@ size_t http_parser_execute_request(void* parser, const char* data, size_t len)
 size_t http_parser_execute_response(void* parser, const char* data, size_t len)
 {
     return ((HTTPParser*) parser)->execute_response(data, len);
+}
+
+const char* http_parser_get_request_error(void* parser)
+{
+    return http_errno_name((http_errno) ((HTTPParser*) parser)->request_parser_.http_errno);
+}
+
+const char* http_parser_get_response_error(void* parser)
+{
+    return http_errno_name((http_errno) ((HTTPParser*) parser)->response_parser_.http_errno);
 }
 
 void free_http_parser(void* parser)
