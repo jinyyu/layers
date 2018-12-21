@@ -1,6 +1,6 @@
 use crate::detector::Detector;
 use crate::layer::TCPDissector;
-use libc::{c_char, free, malloc};
+use libc::{c_char, c_void, free, malloc};
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::prelude::*;
@@ -84,13 +84,11 @@ extern "C" {
     ) -> isize;
 }
 
-extern "C" fn on_chunk_header(parser: *const Parser) -> i32 {
-    debug!("on_chunk_header begin");
+extern "C" fn on_chunk_header(_parser: *const Parser) -> i32 {
     0
 }
 
-extern "C" fn on_chunk_complete(parser: *const Parser) -> i32 {
-    debug!("on_chunk_complete");
+extern "C" fn on_chunk_complete(_parser: *const Parser) -> i32 {
     0
 }
 
@@ -215,11 +213,11 @@ impl HTTPDissector {
         let this = http.as_ptr() as *const c_char;
 
         unsafe {
-            let mut request_parser = malloc(mem::size_of::<Parser>()) as *mut Parser;
+            let request_parser = malloc(mem::size_of::<Parser>()) as *mut Parser;
             http_parser_init(request_parser, HttpParserType::Request);
             (*request_parser).data = this;
 
-            let mut response_parser = malloc(mem::size_of::<Parser>()) as *mut Parser;
+            let response_parser = malloc(mem::size_of::<Parser>()) as *mut Parser;
             http_parser_init(response_parser, HttpParserType::Resonse);
             (*response_parser).data = this;
 
@@ -233,6 +231,10 @@ impl HTTPDissector {
 
 impl Drop for HTTPDissector {
     fn drop(&mut self) {
+        unsafe {
+            free(self.request_parser as *mut c_void);
+            free(self.response_parser as *mut c_void);
+        }
         let mut file = File::create("/tmp/foo.txt").unwrap();
         let result = file.write(self.buffer.as_slice());
         result.unwrap();
