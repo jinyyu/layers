@@ -1,6 +1,6 @@
 use crate::detector::Detector;
 use crate::layer::TCPDissector;
-use libc::c_char;
+use libc::{c_char, free, malloc};
 use std::cell::RefCell;
 use std::fs::File;
 use std::io::prelude::*;
@@ -8,6 +8,39 @@ use std::mem;
 use std::ptr;
 use std::rc::Rc;
 use std::vec;
+
+const REQUEST_SETTING: ParserSettings = ParserSettings {
+    on_message_begin: on_request_message_begin,
+    on_url,
+    on_status,
+    on_header_field: on_request_header_field,
+    on_header_value: on_request_header_value,
+    on_headers_complete: on_request_headers_complete,
+    on_body: on_request_body,
+    on_message_complete: on_request_message_complete,
+    on_chunk_header,
+    on_chunk_complete,
+};
+
+const RESPONSE_SETTING: ParserSettings = ParserSettings {
+    on_message_begin: on_response_message_begin,
+    on_url,
+    on_status,
+    on_header_field: on_response_header_field,
+    on_header_value: on_response_header_value,
+    on_headers_complete: on_response_headers_complete,
+    on_body: on_response_body,
+    on_message_complete: on_response_message_complete,
+    on_chunk_header,
+    on_chunk_complete,
+};
+
+#[repr(C)]
+enum HttpParserType {
+    Request,
+    Resonse,
+    Both,
+}
 
 #[repr(C)]
 struct Parser {
@@ -37,27 +70,28 @@ struct ParserSettings {
     on_headers_complete: HTTPCallback,
     on_body: HTTPDataCallback,
     on_message_complete: HTTPCallback,
-    /* When on_chunk_header is called, the current chunk length is stored
-     * in parser->content_length.
-     */
     on_chunk_header: HTTPCallback,
     on_chunk_complete: HTTPCallback,
 }
 
 extern "C" {
-    fn init_http_parser_setting(_req: ParserSettings, _res: ParserSettings);
-    fn new_http_parser(_ctx: *const c_char) -> *const c_char;
-    fn free_http_parser(_parser: *const c_char);
-    fn http_parser_execute_request(
-        _parser: *const c_char,
+    fn http_parser_init(_parser: *mut Parser, _t: HttpParserType);
+    fn http_parser_execute(
+        _parser: *const Parser,
+        _setting: *const ParserSettings,
         _data: *const c_char,
-        len: isize,
+        _len: isize,
     ) -> isize;
-    fn http_parser_execute_response(
-        _parser: *const c_char,
-        _data: *const c_char,
-        len: isize,
-    ) -> isize;
+}
+
+extern "C" fn on_chunk_header(parser: *const Parser) -> i32 {
+    debug!("on_chunk_header begin");
+    0
+}
+
+extern "C" fn on_chunk_complete(parser: *const Parser) -> i32 {
+    debug!("on_chunk_complete");
+    0
 }
 
 extern "C" fn on_request_message_begin(parser: *const Parser) -> i32 {
@@ -164,51 +198,34 @@ pub struct HTTPDissector {
     detector: Rc<Detector>,
     flow: *const c_char,
     buffer: Vec<u8>,
-    parser: *const c_char,
+    request_parser: *const Parser,
+    response_parser: *const Parser,
 }
 
 impl HTTPDissector {
-    pub fn init() {
-        let request_setting = ParserSettings {
-            on_message_begin: on_request_message_begin,
-            on_url,
-            on_status: unsafe { mem::transmute::<*const i8, HTTPDataCallback>(ptr::null()) },
-            on_header_field: on_request_header_field,
-            on_header_value: on_request_header_value,
-            on_headers_complete: on_request_headers_complete,
-            on_body: on_request_body,
-            on_message_complete: on_request_message_complete,
-            on_chunk_header: unsafe { mem::transmute::<*const i8, HTTPCallback>(ptr::null()) },
-            on_chunk_complete: unsafe { mem::transmute::<*const i8, HTTPCallback>(ptr::null()) },
-        };
-
-        let response_setting = ParserSettings {
-            on_message_begin: on_response_message_begin,
-            on_url: unsafe { mem::transmute::<*const i8, HTTPDataCallback>(ptr::null()) },
-            on_status,
-            on_header_field: on_response_header_field,
-            on_header_value: on_response_header_value,
-            on_headers_complete: on_response_headers_complete,
-            on_body: on_response_body,
-            on_message_complete: on_response_message_complete,
-            on_chunk_header: unsafe { mem::transmute::<*const i8, HTTPCallback>(ptr::null()) },
-            on_chunk_complete: unsafe { mem::transmute::<*const i8, HTTPCallback>(ptr::null()) },
-        };
-
-        unsafe {
-            init_http_parser_setting(request_setting, response_setting);
-        }
-    }
     pub fn new(detector: Rc<Detector>, flow: *const c_char) -> Rc<RefCell<TCPDissector>> {
         let http = Rc::new(RefCell::new(HTTPDissector {
             detector,
             flow,
             buffer: Vec::new(),
-            parser: ptr::null(),
+            request_parser: ptr::null(),
+            response_parser: ptr::null(),
         }));
-        let raw = (*http).as_ptr();
-        http.borrow_mut().parser = unsafe { new_http_parser(raw as *const c_char) };
 
+        let this = http.as_ptr() as *const c_char;
+
+        unsafe {
+            let mut request_parser = malloc(mem::size_of::<Parser>()) as *mut Parser;
+            http_parser_init(request_parser, HttpParserType::Request);
+            (*request_parser).data = this;
+
+            let mut response_parser = malloc(mem::size_of::<Parser>()) as *mut Parser;
+            http_parser_init(response_parser, HttpParserType::Resonse);
+            (*response_parser).data = this;
+
+            http.borrow_mut().request_parser = request_parser;
+            http.borrow_mut().response_parser = response_parser;
+        }
         debug!("http request {}", http.borrow().detector.get_http_url(flow));
         return http;
     }
@@ -216,8 +233,6 @@ impl HTTPDissector {
 
 impl Drop for HTTPDissector {
     fn drop(&mut self) {
-        unsafe { free_http_parser(self.parser) };
-
         let mut file = File::create("/tmp/foo.txt").unwrap();
         let result = file.write(self.buffer.as_slice());
         result.unwrap();
@@ -226,25 +241,31 @@ impl Drop for HTTPDissector {
 
 impl TCPDissector for HTTPDissector {
     fn on_client_data(&mut self, data: &[u8]) {
-        unsafe {
-            http_parser_execute_request(
-                self.parser,
+        let n = unsafe {
+            http_parser_execute(
+                self.request_parser,
+                &REQUEST_SETTING as *const ParserSettings,
                 data.as_ptr() as *const c_char,
                 data.len() as isize,
-            );
+            )
+        };
+        if n != data.len() as isize {
+            debug!("http parse error");
         }
-        debug!("http client data {}", data.len());
     }
     fn on_server_data(&mut self, data: &[u8]) {
         self.buffer.extend_from_slice(data);
 
-        debug!("http server data {}", data.len());
-        unsafe {
-            http_parser_execute_response(
-                self.parser,
+        let n = unsafe {
+            http_parser_execute(
+                self.response_parser,
+                &RESPONSE_SETTING as *const ParserSettings,
                 data.as_ptr() as *const c_char,
                 data.len() as isize,
-            );
+            )
+        };
+        if n != data.len() as isize {
+            debug!("http parse error");
         }
     }
 }
