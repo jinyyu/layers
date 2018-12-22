@@ -3,7 +3,7 @@ use crate::layer::dissector;
 use crate::layer::tcp_flow::TcpFlow;
 use crate::packet::Packet;
 use libc::c_char;
-use std::cell::RefCell;
+use std::cell::{RefCell, Cell};
 use std::collections::VecDeque;
 use std::ptr;
 use std::rc::Rc;
@@ -60,6 +60,7 @@ enum State {
 }
 
 pub struct TCPStream {
+    skip: Rc<Cell<bool>>,
     finished: bool,
     state: State,
 
@@ -94,6 +95,7 @@ impl TCPStream {
 
     pub fn new(packet: Arc<Packet>, detector: Rc<detector::Detector>) -> TCPStream {
         let mut stream = TCPStream {
+            skip: Rc::new(Cell::new(false)),
             finished: false,
             state: State::DetectTrying,
 
@@ -239,13 +241,27 @@ impl TCPStream {
                 let dissector = self.dissector.clone();
 
                 if is_client {
+                    let skip = self.skip.clone();
                     let cb = move |data: &[u8]| {
-                        dissector.borrow_mut().on_client_data(data);
+                        let result = dissector.borrow_mut().on_client_data(data);
+                        match result {
+                            Err(_) => {
+                                skip.set(true);
+                            }
+                            Ok(_) => {}
+                        }
                     };
                     f = TcpFlow::new(packet, Box::new(cb));
                 } else {
+                    let skip = self.skip.clone();
                     let cb = move |data: &[u8]| {
-                        dissector.borrow_mut().on_server_data(data);
+                        let result = dissector.borrow_mut().on_server_data(data);
+                        match result {
+                            Err(_) => {
+                                skip.set(true);
+                            }
+                            Ok(_) => {}
+                        }
                     };
                     f = TcpFlow::new(packet, Box::new(cb));
                 }
@@ -254,7 +270,11 @@ impl TCPStream {
                 *flow = Some(f);
             }
             Some(ref mut flow) => {
-                flow.process_packet(packet);
+                if self.skip.get() {
+                    debug!("skip data");
+                } else {
+                    flow.process_packet(packet);
+                }
             }
         }
     }

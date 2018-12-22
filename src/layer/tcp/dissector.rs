@@ -8,8 +8,8 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 pub trait TCPDissector {
-    fn on_client_data(&mut self, data: &[u8]);
-    fn on_server_data(&mut self, data: &[u8]);
+    fn on_client_data(&mut self, data: &[u8]) -> Result<(), ()>;
+    fn on_server_data(&mut self, data: &[u8]) -> Result<(), ()>;
 }
 
 pub struct DefaultDissector {}
@@ -21,17 +21,17 @@ impl DefaultDissector {
 }
 
 impl TCPDissector for DefaultDissector {
-    fn on_client_data(&mut self, data: &[u8]) {
-        debug!("on client data {}", data.len());
+    fn on_client_data(&mut self, data: &[u8]) -> Result<(), ()> {
+        Err(())
     }
-    fn on_server_data(&mut self, data: &[u8]) {
-        debug!("on server data {}", data.len());
+    fn on_server_data(&mut self, data: &[u8]) -> Result<(), ()> {
+        Err(())
     }
 }
 
 pub struct TCPDissectorAllocator {
     protocol:
-        HashMap<u16, fn(detector: Rc<Detector>, flow: *const c_char) -> Rc<RefCell<TCPDissector>>>,
+    HashMap<u16, fn(detector: Rc<Detector>, flow: *const c_char) -> Rc<RefCell<TCPDissector>>>,
 }
 
 impl TCPDissectorAllocator {

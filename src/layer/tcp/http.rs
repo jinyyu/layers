@@ -2,12 +2,15 @@ use crate::detector::Detector;
 use crate::layer::TCPDissector;
 use libc::{c_char, c_void, free, malloc};
 use std::cell::RefCell;
+use std::ffi::CStr;
 use std::fs::File;
 use std::io::prelude::*;
 use std::mem;
 use std::ptr;
 use std::rc::Rc;
+use std::slice;
 use std::vec;
+use std::collections::HashMap;
 
 const REQUEST_SETTING: ParserSettings = ParserSettings {
     on_message_begin: on_request_message_begin,
@@ -50,13 +53,14 @@ struct Parser {
 
     http_major: u16,
     http_minor: u16,
-    opaque2: u32,
+    status: u16,
+    opaque2: u16,
 
     data: *const c_char,
 }
 
 type HTTPDataCallback =
-    extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
+extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
 
 type HTTPCallback = extern "C" fn(_parser: *const Parser) -> i32;
 
@@ -93,12 +97,12 @@ extern "C" fn on_chunk_complete(_parser: *const Parser) -> i32 {
 }
 
 extern "C" fn on_request_message_begin(parser: *const Parser) -> i32 {
-    debug!("on_request_message_begin begin");
     0
 }
 
-extern "C" fn on_url(parser: *const Parser, data: *const c_char, length: isize) -> i32 {
-    debug!("on_url");
+extern "C" fn on_url(_parser: *const Parser, data: *const c_char, length: isize) -> i32 {
+    let s = unsafe { String::from_raw_parts(data as *mut u8, length as usize, length as usize) };
+    debug!("url = {}", s);
     0
 }
 
@@ -107,7 +111,11 @@ extern "C" fn on_request_header_field(
     data: *const c_char,
     length: isize,
 ) -> i32 {
-    debug!("on_request_header_field");
+    unsafe {
+        let s = String::from_raw_parts(data as *mut u8, length as usize, length as usize);
+        let this = (*parser).data as *mut HTTPDissector;
+        (*this).request_header = s;
+    }
     0
 }
 
@@ -116,12 +124,24 @@ extern "C" fn on_request_header_value(
     data: *const c_char,
     length: isize,
 ) -> i32 {
-    debug!("on_request_header_value");
+    unsafe {
+        let v = String::from_raw_parts(data as *mut u8, length as usize, length as usize);
+        let this = (*parser).data as *mut HTTPDissector;
+
+        let k = (*this).request_header.clone();
+
+        (*this).request_headers.insert(k, v);
+    }
     0
 }
 
 extern "C" fn on_request_headers_complete(parser: *const Parser) -> i32 {
-    debug!("on_request_headers_complete");
+    unsafe {
+        let this = (*parser).data as *const HTTPDissector;
+        for (k, v) in &(*this).request_headers {
+            debug!("{}: {}", k, v);
+        }
+    }
     0
 }
 
@@ -141,7 +161,12 @@ extern "C" fn on_response_message_begin(parser: *const Parser) -> i32 {
 }
 
 extern "C" fn on_status(parser: *const Parser, data: *const c_char, length: isize) -> i32 {
-    debug!("on_status");
+    unsafe {
+        if (*parser).status != 200 {
+            let s = String::from_raw_parts(data as *mut u8, length as usize, length as usize);
+            debug!("http error : {} {}", (*parser).status, s);
+        } else {}
+    }
     0
 }
 
@@ -186,6 +211,7 @@ impl Parser {
             content_length: 0,
             http_major: 0,
             http_minor: 0,
+            status: 0,
             opaque2: 0,
             data,
         })
@@ -193,6 +219,11 @@ impl Parser {
 }
 
 pub struct HTTPDissector {
+    url: String,
+    request_header: String,
+    request_headers: HashMap<String, String>,
+    response_header: String,
+    response_headers: HashMap<String, String>,
     detector: Rc<Detector>,
     flow: *const c_char,
     buffer: Vec<u8>,
@@ -202,7 +233,14 @@ pub struct HTTPDissector {
 
 impl HTTPDissector {
     pub fn new(detector: Rc<Detector>, flow: *const c_char) -> Rc<RefCell<TCPDissector>> {
+        let url = detector.get_http_url(flow);
+        debug!("url = {}", url);
         let http = Rc::new(RefCell::new(HTTPDissector {
+            url,
+            request_header: "".to_string(),
+            request_headers: HashMap::new(),
+            response_header: "".to_string(),
+            response_headers: HashMap::new(),
             detector,
             flow,
             buffer: Vec::new(),
@@ -224,7 +262,6 @@ impl HTTPDissector {
             http.borrow_mut().request_parser = request_parser;
             http.borrow_mut().response_parser = response_parser;
         }
-        debug!("http request {}", http.borrow().detector.get_http_url(flow));
         return http;
     }
 }
@@ -242,7 +279,7 @@ impl Drop for HTTPDissector {
 }
 
 impl TCPDissector for HTTPDissector {
-    fn on_client_data(&mut self, data: &[u8]) {
+    fn on_client_data(&mut self, data: &[u8]) -> Result<(), ()> {
         let n = unsafe {
             http_parser_execute(
                 self.request_parser,
@@ -253,9 +290,12 @@ impl TCPDissector for HTTPDissector {
         };
         if n != data.len() as isize {
             debug!("http parse error");
+            Err(())
+        } else {
+            Ok(())
         }
     }
-    fn on_server_data(&mut self, data: &[u8]) {
+    fn on_server_data(&mut self, data: &[u8]) -> Result<(), ()> {
         self.buffer.extend_from_slice(data);
 
         let n = unsafe {
@@ -268,6 +308,9 @@ impl TCPDissector for HTTPDissector {
         };
         if n != data.len() as isize {
             debug!("http parse error");
+            Err(())
+        } else {
+            Ok(())
         }
     }
 }
