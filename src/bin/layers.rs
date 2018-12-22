@@ -1,3 +1,4 @@
+use daq::DAQ;
 use env_logger::Builder;
 use std::env;
 use std::fs;
@@ -12,6 +13,17 @@ extern crate env_logger;
 extern crate layers;
 
 use layers::*;
+
+type SignalCallback = extern "C" fn(_sig: i32);
+
+extern "C" {
+    fn signal(_sig: i32, _handler: SignalCallback) -> SignalCallback;
+}
+
+extern "C" fn on_signal(sig: i32) {
+    debug!("on signal {}", sig);
+    DAQ::shutdown();
+}
 
 struct Main {
     dispatcher: Arc<dispatcher::Dispatcher>,
@@ -80,5 +92,11 @@ fn main() {
     let conf = config::load(configure);
     Main::setup_workspace(conf.clone());
     let app = Main::new(conf);
+
+    unsafe {
+        signal(1, on_signal);
+        signal(2, on_signal);
+    }
+
     app.run();
 }

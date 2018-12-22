@@ -39,7 +39,7 @@ const RESPONSE_SETTING: ParserSettings = ParserSettings {
 #[repr(C)]
 enum HttpParserType {
     Request,
-    Resonse,
+    Response,
     Both,
 }
 
@@ -249,7 +249,7 @@ impl HTTPDissector {
             (*request_parser).data = this;
 
             let response_parser = malloc(mem::size_of::<Parser>()) as *mut Parser;
-            http_parser_init(response_parser, HttpParserType::Resonse);
+            http_parser_init(response_parser, HttpParserType::Response);
             (*response_parser).data = this;
 
             http.borrow_mut().request_parser = request_parser;

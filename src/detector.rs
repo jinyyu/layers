@@ -365,7 +365,6 @@ impl Detector {
     // host byte order
     pub fn guess_undetected_protocol(
         &self,
-        flow: *const c_char,
         src_ip: u32,
         src_port: u16,
         dst_ip: u32,

@@ -216,7 +216,6 @@ impl TCPStream {
         }
 
         self.proto = self.detector.guess_undetected_protocol(
-            self.flow,
             unsafe { inet::ntohl(self.client) },
             self.client_port,
             unsafe { inet::ntohl(self.server) },

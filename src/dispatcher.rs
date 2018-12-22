@@ -2,6 +2,7 @@ use crate::config;
 use crate::layer::tcp::TCPTracker;
 use crate::packet::Packet;
 use std::num::Wrapping;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc;
 use std::sync::Arc;
 use std::thread;
@@ -14,6 +15,11 @@ pub struct Dispatcher {
 }
 
 impl Dispatcher {
+    const RUNNING: AtomicBool = AtomicBool::new(true);
+
+    pub fn shutdown() {
+        Dispatcher::RUNNING.store(false, Ordering::Relaxed);
+    }
     pub fn dispatch(&self, packet: Arc<Packet>) {
         let hash = (Wrapping(packet.src_ip)
             + Wrapping(packet.src_port as u32)

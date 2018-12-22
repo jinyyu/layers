@@ -2,7 +2,9 @@ use crate::config;
 use crate::packet::Packet;
 use libc::{c_char, c_int, c_uint};
 use std::ffi::CString;
-use std::sync::Arc;
+use std::mem;
+use std::ptr;
+use std::sync::{Arc, Mutex};
 
 #[repr(C)]
 pub struct DAQ {
@@ -53,9 +55,22 @@ extern "C" {
         _cb: extern "C" fn(ctx: *mut c_char, *const PacketHeader, *const c_char),
         _ctx: *const c_char,
     ) -> c_int;
+
+    fn pcap_breakloop(_handle: *const c_char);
 }
 
+static mut PCAP_HANDLE: u64 = 0;
+
 impl DAQ {
+    pub fn shutdown() {
+        unsafe {
+            if PCAP_HANDLE > 0 {
+                let handle = mem::transmute::<u64, *const c_char>(PCAP_HANDLE);
+                pcap_breakloop(handle);
+            }
+        }
+    }
+
     pub fn run(&self, cb: &Fn(Arc<Packet>)) {
         info!("pcap_loop");
         unsafe {
@@ -98,6 +113,7 @@ fn open_device(device: &str) -> Option<*const c_char> {
     let buffer = buff.as_mut_ptr();
     unsafe {
         let handle = pcap_create(device.as_ptr() as *const c_char, buffer);
+
         if handle.is_null() {
             error!(
                 "pcap_create error {}",
@@ -105,6 +121,9 @@ fn open_device(device: &str) -> Option<*const c_char> {
             );
             return None;
         }
+
+        let pcap_handle = mem::transmute::<*const c_char, u64>(handle);
+        PCAP_HANDLE = pcap_handle;
 
         //64k
         let ret = pcap_set_snaplen(handle, 1024 * 64);
