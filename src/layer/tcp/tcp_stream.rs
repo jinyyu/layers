@@ -123,7 +123,7 @@ impl TCPStream {
         };
 
         if unsafe { (*packet.tcp).flags & TCPHeader::SYN > 0 } {
-            debug!("syn stream");
+            trace!("syn stream");
             stream.state = State::DetectTrying;
         }
         return stream;
@@ -138,7 +138,7 @@ impl TCPStream {
 
         match self.state {
             State::DetectError => {
-                debug!("unknown protocol");
+                trace!("unknown protocol");
             }
             State::DetectTrying => {
                 self.pending_packets.push_back(packet.clone());
@@ -158,7 +158,7 @@ impl TCPStream {
 
         unsafe {
             if (*packet.tcp).flags & (TCPHeader::FIN | TCPHeader::RST) > 0 {
-                debug!("finished");
+                trace!("finished");
                 self.finished = true
             }
         }
@@ -231,7 +231,7 @@ impl TCPStream {
 
     fn on_detect_success(&mut self) {
         self.state = State::DetectSuccess;
-        debug!(
+        trace!(
             "detect success proto name = {}",
             self.detector.protocol_name(&self.proto)
         );
@@ -297,7 +297,7 @@ impl TCPStream {
             }
             Some(ref mut flow) => {
                 if self.skip.get() {
-                    debug!("skip data");
+                    trace!("skip data");
                 } else {
                     flow.process_packet(packet);
                 }
@@ -314,7 +314,7 @@ impl TCPStream {
 impl Drop for TCPStream {
     fn drop(&mut self) {
         self.detect_give_up();
-        debug!("stream clean up");
+        trace!("stream clean up");
 
         unsafe {
             if self.flow != ptr::null() {
