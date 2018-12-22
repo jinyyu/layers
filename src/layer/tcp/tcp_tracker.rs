@@ -3,6 +3,7 @@ use crate::detector::Detector;
 use crate::layer::ip::StreamID;
 use crate::layer::tcp::TCPStream;
 use crate::packet::Packet;
+use layer::IPProto;
 use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -21,7 +22,7 @@ impl TCPTracker {
         TCPTracker {
             last_cleanup: 0,
             streams: HashMap::new(),
-            detector: Rc::new(Detector::new(conf.clone())),
+            detector: Rc::new(Detector::new(conf.clone(), IPProto::TCP)),
         }
     }
 

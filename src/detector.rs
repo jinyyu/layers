@@ -1,3 +1,4 @@
+use layer::ip::IPProto;
 use libc::c_char;
 use std::cell::RefCell;
 use std::ffi::CStr;
@@ -293,7 +294,7 @@ extern "C" {
         proto: u8,
         src_ip: u32,
         src_port: u16,
-        dst_ip: u16,
+        dst_ip: u32,
         dst_port: u16,
     ) -> Proto;
 
@@ -321,14 +322,16 @@ extern "C" {
 pub struct Detector {
     ctx: *const c_char,
     tcp_dissector_allocator: TCPDissectorAllocator,
+    ip_proto: IPProto,
 }
 
 impl Detector {
-    pub fn new(conf: Arc<Configure>) -> Detector {
+    pub fn new(conf: Arc<Configure>, ip_proto: IPProto) -> Detector {
         let ctx = unsafe { init_ndpi_ctx() };
         Detector {
             ctx,
             tcp_dissector_allocator: TCPDissectorAllocator::new(conf.clone()),
+            ip_proto,
         }
     }
 
@@ -351,6 +354,31 @@ impl Detector {
                 tm,
                 src_id,
                 dst_id,
+            )
+        }
+    }
+
+    pub fn detect_give_up(&self, flow: *const c_char) -> Proto {
+        unsafe { ndpi_detection_giveup(self.ctx, flow) }
+    }
+
+    // host byte order
+    pub fn guess_undetected_protocol(
+        &self,
+        flow: *const c_char,
+        src_ip: u32,
+        src_port: u16,
+        dst_ip: u32,
+        dst_port: u16,
+    ) -> Proto {
+        unsafe {
+            ndpi_guess_undetected_protocol(
+                self.ctx,
+                self.ip_proto.0,
+                src_ip,
+                src_port,
+                dst_ip,
+                dst_port,
             )
         }
     }

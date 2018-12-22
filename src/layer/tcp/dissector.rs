@@ -21,17 +21,17 @@ impl DefaultDissector {
 }
 
 impl TCPDissector for DefaultDissector {
-    fn on_client_data(&mut self, data: &[u8]) -> Result<(), ()> {
+    fn on_client_data(&mut self, _data: &[u8]) -> Result<(), ()> {
         Err(())
     }
-    fn on_server_data(&mut self, data: &[u8]) -> Result<(), ()> {
+    fn on_server_data(&mut self, _data: &[u8]) -> Result<(), ()> {
         Err(())
     }
 }
 
 pub struct TCPDissectorAllocator {
     protocol:
-    HashMap<u16, fn(detector: Rc<Detector>, flow: *const c_char) -> Rc<RefCell<TCPDissector>>>,
+        HashMap<u16, fn(detector: Rc<Detector>, flow: *const c_char) -> Rc<RefCell<TCPDissector>>>,
 }
 
 impl TCPDissectorAllocator {

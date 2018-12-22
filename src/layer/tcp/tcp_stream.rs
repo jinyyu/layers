@@ -2,8 +2,9 @@ use crate::detector;
 use crate::layer::dissector;
 use crate::layer::tcp_flow::TcpFlow;
 use crate::packet::Packet;
+use inet;
 use libc::c_char;
-use std::cell::{RefCell, Cell};
+use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::ptr;
 use std::rc::Rc;
@@ -195,20 +196,45 @@ impl TCPStream {
         }
 
         if self.proto.success() {
-            debug!("detect success");
-            self.state = State::DetectSuccess;
             self.on_detect_success();
         } else {
             self.detect_times += 1;
             if self.detect_times > TCPStream::MAX_DETECT_TIMES {
-                self.state = State::DetectError;
-                self.on_detect_failed()
+                self.detect_give_up();
             }
         }
     }
 
+    fn detect_give_up(&mut self) {
+        if self.state != State::DetectTrying {
+            return;
+        }
+        self.proto = self.detector.detect_give_up(self.flow);
+        if self.proto.success() {
+            self.on_detect_success();
+            return;
+        }
+
+        self.proto = self.detector.guess_undetected_protocol(
+            self.flow,
+            unsafe { inet::ntohl(self.client) },
+            self.client_port,
+            unsafe { inet::ntohl(self.server) },
+            self.server_port,
+        );
+        if self.proto.success() {
+            self.on_detect_success();
+        } else {
+            self.on_detect_failed();
+        }
+    }
+
     fn on_detect_success(&mut self) {
-        debug!("proto name = {}", self.detector.protocol_name(&self.proto));
+        self.state = State::DetectSuccess;
+        debug!(
+            "detect success proto name = {}",
+            self.detector.protocol_name(&self.proto)
+        );
         self.dissector =
             self.detector
                 .alloc_tcp_dissector(&self.proto, self.detector.clone(), self.flow);
@@ -280,13 +306,16 @@ impl TCPStream {
     }
 
     fn on_detect_failed(&mut self) {
+        self.state = State::DetectError;
         self.pending_packets.clear();
     }
 }
 
 impl Drop for TCPStream {
     fn drop(&mut self) {
+        self.detect_give_up();
         debug!("stream clean up");
+
         unsafe {
             if self.flow != ptr::null() {
                 detector::free_ndpi_flow(self.flow);

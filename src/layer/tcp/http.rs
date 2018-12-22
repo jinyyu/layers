@@ -2,15 +2,13 @@ use crate::detector::Detector;
 use crate::layer::TCPDissector;
 use libc::{c_char, c_void, free, malloc};
 use std::cell::RefCell;
-use std::ffi::CStr;
+use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
 use std::mem;
 use std::ptr;
 use std::rc::Rc;
-use std::slice;
 use std::vec;
-use std::collections::HashMap;
 
 const REQUEST_SETTING: ParserSettings = ParserSettings {
     on_message_begin: on_request_message_begin,
@@ -60,7 +58,7 @@ struct Parser {
 }
 
 type HTTPDataCallback =
-extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
+    extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
 
 type HTTPCallback = extern "C" fn(_parser: *const Parser) -> i32;
 
@@ -96,7 +94,7 @@ extern "C" fn on_chunk_complete(_parser: *const Parser) -> i32 {
     0
 }
 
-extern "C" fn on_request_message_begin(parser: *const Parser) -> i32 {
+extern "C" fn on_request_message_begin(_parser: *const Parser) -> i32 {
     0
 }
 
@@ -165,7 +163,8 @@ extern "C" fn on_status(parser: *const Parser, data: *const c_char, length: isiz
         if (*parser).status != 200 {
             let s = String::from_raw_parts(data as *mut u8, length as usize, length as usize);
             debug!("http error : {} {}", (*parser).status, s);
-        } else {}
+        } else {
+        }
     }
     0
 }
@@ -175,7 +174,11 @@ extern "C" fn on_response_header_field(
     data: *const c_char,
     length: isize,
 ) -> i32 {
-    debug!("on_response_header_field");
+    unsafe {
+        let s = String::from_raw_parts(data as *mut u8, length as usize, length as usize);
+        let this = (*parser).data as *mut HTTPDissector;
+        (*this).response_header = s;
+    }
     0
 }
 
@@ -184,7 +187,14 @@ extern "C" fn on_response_header_value(
     data: *const c_char,
     length: isize,
 ) -> i32 {
-    debug!("on_response_header_value");
+    unsafe {
+        let v = String::from_raw_parts(data as *mut u8, length as usize, length as usize);
+        let this = (*parser).data as *mut HTTPDissector;
+
+        let k = (*this).response_header.clone();
+
+        (*this).response_headers.insert(k, v);
+    }
     0
 }
 
@@ -201,21 +211,6 @@ extern "C" fn on_response_body(parser: *const Parser, data: *const c_char, lengt
 extern "C" fn on_response_message_complete(parser: *const Parser) -> i32 {
     debug!("on_response_message_complete");
     0
-}
-
-impl Parser {
-    fn new(data: *const c_char) -> Box<Parser> {
-        Box::new(Parser {
-            opaque1: 0,
-            nread: 0,
-            content_length: 0,
-            http_major: 0,
-            http_minor: 0,
-            status: 0,
-            opaque2: 0,
-            data,
-        })
-    }
 }
 
 pub struct HTTPDissector {
