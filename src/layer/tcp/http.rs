@@ -3,12 +3,14 @@ use crate::layer::TCPDissector;
 use libc::{c_char, c_void, free, malloc};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fs::File;
 use std::io::prelude::*;
 use std::mem;
 use std::ptr;
 use std::rc::Rc;
 use std::vec;
+use std::ffi::CStr;
+use std::slice;
+
 
 const REQUEST_SETTING: ParserSettings = ParserSettings {
     on_message_begin: on_request_message_begin,
@@ -58,7 +60,7 @@ struct Parser {
 }
 
 type HTTPDataCallback =
-    extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
+extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
 
 type HTTPCallback = extern "C" fn(_parser: *const Parser) -> i32;
 
@@ -99,7 +101,11 @@ extern "C" fn on_request_message_begin(_parser: *const Parser) -> i32 {
 }
 
 extern "C" fn on_url(_parser: *const Parser, data: *const c_char, length: isize) -> i32 {
-    let s = unsafe { String::from_raw_parts(data as *mut u8, length as usize, length as usize) };
+    let s;
+    unsafe {
+        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(data as *const u8, length as usize));
+        s = c_str.to_string_lossy().into_owned();
+    };
     debug!("url = {}", s);
     0
 }
@@ -110,7 +116,8 @@ extern "C" fn on_request_header_field(
     length: isize,
 ) -> i32 {
     unsafe {
-        let s = String::from_raw_parts(data as *mut u8, length as usize, length as usize);
+        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(data as *const u8, length as usize));
+        let s = c_str.to_string_lossy().into_owned();
         let this = (*parser).data as *mut HTTPDissector;
         (*this).request_header = s;
     }
@@ -123,7 +130,9 @@ extern "C" fn on_request_header_value(
     length: isize,
 ) -> i32 {
     unsafe {
-        let v = String::from_raw_parts(data as *mut u8, length as usize, length as usize);
+        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(data as *const u8, length as usize));
+        let v = c_str.to_string_lossy().into_owned();
+
         let this = (*parser).data as *mut HTTPDissector;
 
         let k = (*this).request_header.clone();
@@ -161,10 +170,10 @@ extern "C" fn on_response_message_begin(parser: *const Parser) -> i32 {
 extern "C" fn on_status(parser: *const Parser, data: *const c_char, length: isize) -> i32 {
     unsafe {
         if (*parser).status != 200 {
-            let s = String::from_raw_parts(data as *mut u8, length as usize, length as usize);
+            let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(data as *const u8, length as usize));
+            let s = c_str.to_string_lossy().into_owned();
             trace!("http error : {} {}", (*parser).status, s);
-        } else {
-        }
+        } else {}
     }
     0
 }
@@ -175,7 +184,8 @@ extern "C" fn on_response_header_field(
     length: isize,
 ) -> i32 {
     unsafe {
-        let s = String::from_raw_parts(data as *mut u8, length as usize, length as usize);
+        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(data as *const u8, length as usize));
+        let s = c_str.to_string_lossy().into_owned();
         let this = (*parser).data as *mut HTTPDissector;
         (*this).response_header = s;
     }
@@ -187,19 +197,31 @@ extern "C" fn on_response_header_value(
     data: *const c_char,
     length: isize,
 ) -> i32 {
-    unsafe {
-        let v = String::from_raw_parts(data as *mut u8, length as usize, length as usize);
-        let this = (*parser).data as *mut HTTPDissector;
+    if length > 0 {
+        unsafe {
+            let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(data as *const u8, length as usize));
+            let v = c_str.to_string_lossy().into_owned();
+            let this = (*parser).data as *mut HTTPDissector;
 
-        let k = (*this).response_header.clone();
+            let k = (*this).response_header.clone();
 
-        (*this).response_headers.insert(k, v);
+            if k == "Content-Type" {
+                debug!("================================================= {}", v);
+            }
+
+            (*this).response_headers.insert(k, v);
+        }
     }
     0
 }
 
 extern "C" fn on_response_headers_complete(parser: *const Parser) -> i32 {
-    trace!("on_response_headers_complete");
+    unsafe {
+        let this = (*parser).data as *const HTTPDissector;
+        for (k, v) in &(*this).response_headers {
+            trace!("{}: {}", k, v);
+        }
+    }
     0
 }
 
@@ -215,6 +237,7 @@ extern "C" fn on_response_message_complete(parser: *const Parser) -> i32 {
 
 pub struct HTTPDissector {
     url: String,
+    content_type: String,
     request_header: String,
     request_headers: HashMap<String, String>,
     response_header: String,
@@ -228,9 +251,11 @@ pub struct HTTPDissector {
 impl HTTPDissector {
     pub fn new(detector: Rc<Detector>, flow: *const c_char) -> Rc<RefCell<TCPDissector>> {
         let url = detector.get_http_url(flow);
-        trace!("url = {}", url);
+        let content_type = detector.get_http_content_type(flow);
+        trace!("url = {}, content_type = {}", url, content_type);
         let http = Rc::new(RefCell::new(HTTPDissector {
             url,
+            content_type,
             request_header: "".to_string(),
             request_headers: HashMap::new(),
             response_header: "".to_string(),
@@ -265,9 +290,6 @@ impl Drop for HTTPDissector {
             free(self.request_parser as *mut c_void);
             free(self.response_parser as *mut c_void);
         }
-        let mut file = File::create("/tmp/foo.txt").unwrap();
-        let result = file.write(self.buffer.as_slice());
-        result.unwrap();
     }
 }
 
