@@ -225,10 +225,6 @@ extern "C" fn on_response_header_value(
 
         let k = (*this).response_header.clone();
 
-        if k == "Content-Type" {
-            debug!("================================================= {}", v);
-        }
-
         (*this).response_headers.insert(k, v);
     }
     0
