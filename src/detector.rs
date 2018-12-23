@@ -1,10 +1,9 @@
 use layer::ip::IPProto;
-use libc::{c_char, strlen};
+use libc::c_char;
 use std::cell::RefCell;
 use std::ffi::CStr;
 use std::rc::Rc;
 use std::sync::Arc;
-
 
 use crate::config::Configure;
 use crate::layer::tcp::dissector::{TCPDissector, TCPDissectorAllocator};
@@ -412,7 +411,6 @@ impl Detector {
     }
 
     pub fn get_http_content_type(&self, flow: *const c_char) -> String {
-
         let c_str;
         unsafe {
             c_str = CStr::from_ptr(ndpi_get_http_content_type(self.ctx, flow) as *const c_char);

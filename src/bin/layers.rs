@@ -1,8 +1,8 @@
-use daq::DAQ;
 use env_logger::Builder;
 use std::env;
 use std::fs;
 use std::io::Write;
+use std::mem;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -22,8 +22,16 @@ extern "C" {
 
 extern "C" fn on_signal(sig: i32) {
     debug!("on signal {}", sig);
-    DAQ::shutdown();
+
+    unsafe {
+        if APP_PTR != 0 {
+            let app = mem::transmute::<u64, *mut Main>(APP_PTR);
+            (*app).stop();
+        }
+    }
 }
+
+static mut APP_PTR: u64 = 0;
 
 struct Main {
     dispatcher: Arc<dispatcher::Dispatcher>,
@@ -61,6 +69,11 @@ impl Main {
             dispatcher.dispatch(packet);
         });
     }
+
+    fn stop(&mut self) {
+        self.daq.stop();
+        self.dispatcher.stop();
+    }
 }
 
 fn main() {
@@ -92,6 +105,11 @@ fn main() {
     let conf = config::load(configure);
     Main::setup_workspace(conf.clone());
     let app = Main::new(conf);
+
+    unsafe {
+        let ptr = mem::transmute::<*const Main, u64>(&app);
+        APP_PTR = ptr;
+    }
 
     unsafe {
         signal(1, on_signal);

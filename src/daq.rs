@@ -2,9 +2,7 @@ use crate::config;
 use crate::packet::Packet;
 use libc::{c_char, c_int, c_uint};
 use std::ffi::CString;
-use std::mem;
-use std::ptr;
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 
 #[repr(C)]
 pub struct DAQ {
@@ -59,15 +57,10 @@ extern "C" {
     fn pcap_breakloop(_handle: *const c_char);
 }
 
-static mut PCAP_HANDLE: u64 = 0;
-
 impl DAQ {
-    pub fn shutdown() {
+    pub fn stop(&self) {
         unsafe {
-            if PCAP_HANDLE > 0 {
-                let handle = mem::transmute::<u64, *const c_char>(PCAP_HANDLE);
-                pcap_breakloop(handle);
-            }
+            pcap_breakloop(self.handle);
         }
     }
 
@@ -81,7 +74,7 @@ impl DAQ {
                 &cb as *const &Fn(Arc<Packet>) as *const c_char,
             );
         }
-        info!("pcap_loop exit ");
+        debug!("pcap_loop exit");
     }
 }
 
@@ -121,9 +114,6 @@ fn open_device(device: &str) -> Option<*const c_char> {
             );
             return None;
         }
-
-        let pcap_handle = mem::transmute::<*const c_char, u64>(handle);
-        PCAP_HANDLE = pcap_handle;
 
         //64k
         let ret = pcap_set_snaplen(handle, 1024 * 64);

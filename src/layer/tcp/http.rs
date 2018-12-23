@@ -1,16 +1,15 @@
 use crate::detector::Detector;
 use crate::layer::TCPDissector;
-use libc::{c_char, c_void, free, malloc};
+use libc::{c_char, c_void, free, malloc, strlen};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ffi::CStr;
 use std::io::prelude::*;
 use std::mem;
 use std::ptr;
 use std::rc::Rc;
-use std::vec;
-use std::ffi::CStr;
 use std::slice;
-
+use std::vec;
 
 const REQUEST_SETTING: ParserSettings = ParserSettings {
     on_message_begin: on_request_message_begin,
@@ -53,7 +52,7 @@ struct Parser {
 
     http_major: u16,
     http_minor: u16,
-    status: u16,
+    status_code: u16,
     opaque2: u16,
 
     data: *const c_char,
@@ -86,6 +85,8 @@ extern "C" {
         _data: *const c_char,
         _len: isize,
     ) -> isize;
+
+    fn http_errno_description_from_parser(_parser: *const Parser) -> *const c_char;
 }
 
 extern "C" fn on_chunk_header(_parser: *const Parser) -> i32 {
@@ -103,7 +104,10 @@ extern "C" fn on_request_message_begin(_parser: *const Parser) -> i32 {
 extern "C" fn on_url(_parser: *const Parser, data: *const c_char, length: isize) -> i32 {
     let s;
     unsafe {
-        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(data as *const u8, length as usize));
+        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
+            data as *const u8,
+            length as usize,
+        ));
         s = c_str.to_string_lossy().into_owned();
     };
     debug!("url = {}", s);
@@ -116,7 +120,10 @@ extern "C" fn on_request_header_field(
     length: isize,
 ) -> i32 {
     unsafe {
-        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(data as *const u8, length as usize));
+        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
+            data as *const u8,
+            length as usize,
+        ));
         let s = c_str.to_string_lossy().into_owned();
         let this = (*parser).data as *mut HTTPDissector;
         (*this).request_header = s;
@@ -130,7 +137,10 @@ extern "C" fn on_request_header_value(
     length: isize,
 ) -> i32 {
     unsafe {
-        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(data as *const u8, length as usize));
+        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
+            data as *const u8,
+            length as usize,
+        ));
         let v = c_str.to_string_lossy().into_owned();
 
         let this = (*parser).data as *mut HTTPDissector;
@@ -169,11 +179,16 @@ extern "C" fn on_response_message_begin(parser: *const Parser) -> i32 {
 
 extern "C" fn on_status(parser: *const Parser, data: *const c_char, length: isize) -> i32 {
     unsafe {
-        if (*parser).status != 200 {
-            let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(data as *const u8, length as usize));
+        if (*parser).status_code != 200 {
+            let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
+                data as *const u8,
+                length as usize,
+            ));
             let s = c_str.to_string_lossy().into_owned();
-            trace!("http error : {} {}", (*parser).status, s);
-        } else {}
+            trace!("http error : {} {}", (*parser).status_code, s);
+        } else {
+
+        }
     }
     0
 }
@@ -184,7 +199,10 @@ extern "C" fn on_response_header_field(
     length: isize,
 ) -> i32 {
     unsafe {
-        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(data as *const u8, length as usize));
+        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
+            data as *const u8,
+            length as usize,
+        ));
         let s = c_str.to_string_lossy().into_owned();
         let this = (*parser).data as *mut HTTPDissector;
         (*this).response_header = s;
@@ -197,20 +215,21 @@ extern "C" fn on_response_header_value(
     data: *const c_char,
     length: isize,
 ) -> i32 {
-    if length > 0 {
-        unsafe {
-            let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(data as *const u8, length as usize));
-            let v = c_str.to_string_lossy().into_owned();
-            let this = (*parser).data as *mut HTTPDissector;
+    unsafe {
+        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
+            data as *const u8,
+            length as usize,
+        ));
+        let v = c_str.to_string_lossy().into_owned();
+        let this = (*parser).data as *mut HTTPDissector;
 
-            let k = (*this).response_header.clone();
+        let k = (*this).response_header.clone();
 
-            if k == "Content-Type" {
-                debug!("================================================= {}", v);
-            }
-
-            (*this).response_headers.insert(k, v);
+        if k == "Content-Type" {
+            debug!("================================================= {}", v);
         }
+
+        (*this).response_headers.insert(k, v);
     }
     0
 }
@@ -242,7 +261,6 @@ pub struct HTTPDissector {
     request_headers: HashMap<String, String>,
     response_header: String,
     response_headers: HashMap<String, String>,
-    flow: *const c_char,
     buffer: Vec<u8>,
     request_parser: *const Parser,
     response_parser: *const Parser,
@@ -260,7 +278,6 @@ impl HTTPDissector {
             request_headers: HashMap::new(),
             response_header: "".to_string(),
             response_headers: HashMap::new(),
-            flow,
             buffer: Vec::new(),
             request_parser: ptr::null(),
             response_parser: ptr::null(),
@@ -295,37 +312,53 @@ impl Drop for HTTPDissector {
 
 impl TCPDissector for HTTPDissector {
     fn on_client_data(&mut self, data: &[u8]) -> Result<(), ()> {
-        let n = unsafe {
-            http_parser_execute(
+        unsafe {
+            let n = http_parser_execute(
                 self.request_parser,
                 &REQUEST_SETTING as *const ParserSettings,
                 data.as_ptr() as *const c_char,
                 data.len() as isize,
-            )
-        };
-        if n != data.len() as isize {
-            trace!("http parse error");
-            Err(())
-        } else {
-            Ok(())
+            );
+
+            if n != data.len() as isize {
+                let err = http_errno_description_from_parser(self.response_parser);
+                let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
+                    err as *const u8,
+                    strlen(err),
+                ));
+                let s = c_str.to_string_lossy();
+
+                trace!("http parse error {}", s);
+                Err(())
+            } else {
+                Ok(())
+            }
         }
     }
     fn on_server_data(&mut self, data: &[u8]) -> Result<(), ()> {
         self.buffer.extend_from_slice(data);
 
-        let n = unsafe {
-            http_parser_execute(
+        unsafe {
+            let n = http_parser_execute(
                 self.response_parser,
                 &RESPONSE_SETTING as *const ParserSettings,
                 data.as_ptr() as *const c_char,
                 data.len() as isize,
-            )
-        };
-        if n != data.len() as isize {
-            trace!("http parse error");
-            Err(())
-        } else {
-            Ok(())
+            );
+
+            if n != data.len() as isize {
+                let err = http_errno_description_from_parser(self.response_parser);
+                let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
+                    err as *const u8,
+                    strlen(err),
+                ));
+                let s = c_str.to_string_lossy();
+
+                trace!("http parse error {}", s);
+                Err(())
+            } else {
+                Ok(())
+            }
         }
     }
 }
