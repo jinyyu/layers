@@ -41,7 +41,7 @@ const RESPONSE_SETTING: ParserSettings = ParserSettings {
 enum HttpParserType {
     Request,
     Response,
-    Both,
+    _Both,
 }
 
 #[repr(C)]
@@ -101,16 +101,17 @@ extern "C" fn on_request_message_begin(_parser: *const Parser) -> i32 {
     0
 }
 
-extern "C" fn on_url(_parser: *const Parser, data: *const c_char, length: isize) -> i32 {
-    let s;
+extern "C" fn on_url(parser: *const Parser, data: *const c_char, length: isize) -> i32 {
+    let data = unsafe { slice::from_raw_parts(data as *const u8, length as usize) };
+
+    let url = String::from_utf8_lossy(data).into_owned();
+
     unsafe {
-        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
-            data as *const u8,
-            length as usize,
-        ));
-        s = c_str.to_string_lossy().into_owned();
-    };
-    debug!("url = {}", s);
+        let this = (*parser).data as *mut HTTPDissector;
+        if (*this).url.is_empty() {
+            (*this).url = url;
+        }
+    }
     0
 }
 
@@ -120,13 +121,12 @@ extern "C" fn on_request_header_field(
     length: isize,
 ) -> i32 {
     unsafe {
-        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
-            data as *const u8,
-            length as usize,
-        ));
-        let s = c_str.to_string_lossy().into_owned();
+        let data = slice::from_raw_parts(data as *const u8, length as usize);
+
+        let header = String::from_utf8_lossy(data).into_owned();
+
         let this = (*parser).data as *mut HTTPDissector;
-        (*this).request_header = s;
+        (*this).request_header = header;
     }
     0
 }
@@ -137,26 +137,32 @@ extern "C" fn on_request_header_value(
     length: isize,
 ) -> i32 {
     unsafe {
-        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
-            data as *const u8,
-            length as usize,
-        ));
-        let v = c_str.to_string_lossy().into_owned();
+        let data = slice::from_raw_parts(data as *const u8, length as usize);
+        let value = String::from_utf8_lossy(data).into_owned();
 
         let this = (*parser).data as *mut HTTPDissector;
+        let header = (*this).request_header.clone();
 
-        let k = (*this).request_header.clone();
-
-        (*this).request_headers.insert(k, v);
+        (*this).request_headers.insert(header, value);
     }
     0
 }
 
 extern "C" fn on_request_headers_complete(parser: *const Parser) -> i32 {
     unsafe {
-        let this = (*parser).data as *const HTTPDissector;
-        for (k, v) in &(*this).request_headers {
-            trace!("{}: {}", k, v);
+        let this = (*parser).data as *mut HTTPDissector;
+
+        if (*this).content_type.is_empty() {
+            let result = (*this).request_headers.get("Content-Type");
+            match result {
+                Some(value) => {
+                    debug!("update Content-Type {}", value);
+                    (*this).content_type = value.clone();
+                }
+                None => {
+                    debug!("not Content-Type");
+                }
+            }
         }
     }
     0
@@ -180,15 +186,11 @@ extern "C" fn on_response_message_begin(parser: *const Parser) -> i32 {
 extern "C" fn on_status(parser: *const Parser, data: *const c_char, length: isize) -> i32 {
     unsafe {
         if (*parser).status_code != 200 {
-            let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
-                data as *const u8,
-                length as usize,
-            ));
-            let s = c_str.to_string_lossy().into_owned();
+            let s =
+                String::from_utf8_lossy(slice::from_raw_parts(data as *const u8, length as usize))
+                    .into_owned();
             trace!("http error : {} {}", (*parser).status_code, s);
-        } else {
-
-        }
+        } else {}
     }
     0
 }
@@ -199,11 +201,8 @@ extern "C" fn on_response_header_field(
     length: isize,
 ) -> i32 {
     unsafe {
-        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
-            data as *const u8,
-            length as usize,
-        ));
-        let s = c_str.to_string_lossy().into_owned();
+        let s = String::from_utf8_lossy(slice::from_raw_parts(data as *const u8, length as usize))
+            .into_owned();
         let this = (*parser).data as *mut HTTPDissector;
         (*this).response_header = s;
     }
@@ -216,11 +215,9 @@ extern "C" fn on_response_header_value(
     length: isize,
 ) -> i32 {
     unsafe {
-        let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
-            data as *const u8,
-            length as usize,
-        ));
-        let v = c_str.to_string_lossy().into_owned();
+        let v = String::from_utf8_lossy(slice::from_raw_parts(data as *const u8, length as usize))
+            .into_owned();
+
         let this = (*parser).data as *mut HTTPDissector;
 
         let k = (*this).response_header.clone();
@@ -232,9 +229,19 @@ extern "C" fn on_response_header_value(
 
 extern "C" fn on_response_headers_complete(parser: *const Parser) -> i32 {
     unsafe {
-        let this = (*parser).data as *const HTTPDissector;
-        for (k, v) in &(*this).response_headers {
-            trace!("{}: {}", k, v);
+        let this = (*parser).data as *mut HTTPDissector;
+
+        if (*this).content_type.is_empty() {
+            let result = (*this).response_headers.get("Content-Type");
+            match result {
+                Some(value) => {
+                    debug!("update Content-Type {}", value);
+                    (*this).content_type = value.clone();
+                }
+                None => {
+                    debug!("not Content-Type");
+                }
+            }
         }
     }
     0
@@ -317,11 +324,8 @@ impl TCPDissector for HTTPDissector {
             );
 
             if n != data.len() as isize {
-                let err = http_errno_description_from_parser(self.response_parser);
-                let c_str = CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
-                    err as *const u8,
-                    strlen(err),
-                ));
+                let c_str =
+                    CStr::from_ptr(http_errno_description_from_parser(self.response_parser));
                 let s = c_str.to_string_lossy();
 
                 trace!("http parse error {}", s);
