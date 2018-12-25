@@ -277,9 +277,9 @@ impl HTTPDissector {
         let http = Rc::new(RefCell::new(HTTPDissector {
             url,
             content_type,
-            request_header: "".to_string(),
+            request_header: String::new(),
             request_headers: HashMap::new(),
-            response_header: "".to_string(),
+            response_header: String::new(),
             response_headers: HashMap::new(),
             buffer: Vec::new(),
             request_parser: ptr::null(),
