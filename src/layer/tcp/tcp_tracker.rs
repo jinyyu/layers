@@ -41,7 +41,7 @@ impl TCPTracker {
             let pkt = packet.clone();
             let detector = self.detector.clone();
             let stream = self.streams.entry(id).or_insert_with(|| {
-                debug!(
+                trace!(
                     "new tcp stream {}:{} ->{}:{}",
                     pkt.src_ip_str(),
                     pkt.src_port,

@@ -125,7 +125,7 @@ impl Packet {
                     self.decode_ipv4(offset, left);
                 }
                 _ => {
-                    debug!(
+                    trace!(
                         "ethernet type {}",
                         EthernetType::ethernet_type_string(eth_type)
                     );
@@ -172,7 +172,7 @@ impl Packet {
                 }
 
                 _ => {
-                    debug!("ip type {}", proto.to_string());
+                    trace!("ip type {}", proto.to_string());
                 }
             }
         }

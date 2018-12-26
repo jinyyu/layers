@@ -32,13 +32,12 @@ public:
           ctx_(nullptr),
           cb_(nullptr)
     {
-        LOG_DEBUG("new");
+        //LOG_DEBUG("new");
     }
 
     ~TCPDataTracker()
     {
-        LOG_DEBUG("release");
-
+        //LOG_DEBUG("release");
     }
 
     void handle_data(uint32_t seq, const char* data, uint32_t len)
