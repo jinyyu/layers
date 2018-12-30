@@ -3,10 +3,10 @@ layers
 
 
 build
-=====
+-----
 
-nDPI
-----
+####nDPI
+
     git clone git@github.com:ntop/nDPI.git
     cd nDPI
     git checkout 2.6-stable
@@ -14,8 +14,8 @@ nDPI
     ./configure
     sudo make install
 
-gmime
------
+####gmime
+
 
     git clone git@github.com:GNOME/gmime.git
     cd gmime
@@ -25,20 +25,23 @@ gmime
     sudo make install
 
 
-c++ module
-----------
+####c++ module
+
     mkdir -p build
     cd build
     cmake3 ..
     sudo make install
 
 
-rust
-----
+####rust
+
     cargo build
 
 run
-===
-   vim /etc/layers/config.yaml
+---
+
+    vim /etc/layers/config.yaml
+    sudo RUST_LOG=debug ./target/debug/layers
+   
 
 
