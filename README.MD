@@ -1,9 +1,12 @@
 layers
 =======
 
-nDPI
-____
 
+build
+=====
+
+####nDPI
+----
     git clone git@github.com:ntop/nDPI.git
     cd nDPI
     git checkout 2.6-stable
@@ -11,8 +14,8 @@ ____
     ./configure
     sudo make install
 
-gmime
-_____
+####gmime
+-----
 
     git clone git@github.com:GNOME/gmime.git
     cd gmime
@@ -22,22 +25,20 @@ _____
     sudo make install
 
 
-c++ module
-__________
-
+####c++ module
+----------
     mkdir -p build
     cd build
     cmake3 ..
     sudo make install
 
 
-rust
-____
-
+####rust
+----
     cargo build
 
 run
----
+===
    vim /etc/layers/config.yaml
 
 
