@@ -5,7 +5,7 @@ layers
 build
 -----
 
-####nDPI
+nDPI
 
     git clone git@github.com:ntop/nDPI.git
     cd nDPI
@@ -14,7 +14,7 @@ build
     ./configure
     sudo make install
 
-####gmime
+gmime
 
 
     git clone git@github.com:GNOME/gmime.git
@@ -25,7 +25,7 @@ build
     sudo make install
 
 
-####c++ module
+c++ module
 
     mkdir -p build
     cd build
@@ -33,7 +33,7 @@ build
     sudo make install
 
 
-####rust
+rust
 
     cargo build
 
