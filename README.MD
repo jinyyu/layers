@@ -36,3 +36,8 @@ ____
 
     cargo build
 
+run
+---
+   vim /etc/layers/config.yaml
+
+
