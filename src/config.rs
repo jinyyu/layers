@@ -34,11 +34,11 @@ impl Configure {
         match it.next() {
             Some(_) => {
                 debug!("find content type {}", content_type);
-                return false;
+                return true;
             }
             None => {
                 debug!("not find content type {}", content_type);
-                return true;
+                return false;
             }
         }
     }
@@ -64,18 +64,18 @@ pub fn load(path: String) -> Arc<Configure> {
         .expect("invalid worker_thread");
     info!("worker_thread = {}", worker_thread);
 
-    let mut skip_http_content_keys = Vec::new();
-    for key in doc["skip_http_content_key"]
+    let mut parse_http_content_keys = Vec::new();
+    for key in doc["parse_http_content_key"]
         .as_vec()
         .expect("invalid skip_http_content_key config")
         .iter()
     {
         let key = key.as_str().expect("invalid config");
         info!("skip http content key {}", key);
-        skip_http_content_keys.push(key.to_string());
+        parse_http_content_keys.push(key.to_string());
     }
 
-    let http_content_ac_automaton = Box::new(AcAutomaton::new(skip_http_content_keys));
+    let http_content_ac_automaton = Box::new(AcAutomaton::new(parse_http_content_keys));
 
     let mut dissectors = HashMap::new();
     for dissector in doc["dissector"]

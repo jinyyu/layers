@@ -2,15 +2,19 @@ use crate::detector::Detector;
 use crate::layer::TCPDissector;
 use config::Configure;
 use gmime_sys;
+use gobject_2_0_sys;
 use libc::{c_char, c_void, free, malloc, strlen};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::mem;
 use std::ptr;
 use std::rc::Rc;
 use std::slice;
 use std::sync::Arc;
+
+use std::fs::File;
+use std::io::prelude::*;
 
 const REQUEST_SETTING: ParserSettings = ParserSettings {
     on_message_begin: on_request_message_begin,
@@ -183,7 +187,6 @@ extern "C" fn on_status(parser: *const Parser, data: *const c_char, length: isiz
                 String::from_utf8_lossy(slice::from_raw_parts(data as *const u8, length as usize));
             trace!("http error : {} {}", (*parser).status_code, s);
         } else {
-
         }
     }
     0
@@ -239,22 +242,53 @@ extern "C" fn on_response_headers_complete(parser: *const Parser) -> i32 {
         return 0;
     }
 
-    if this.parse_response {
-        debug!("parse response");
-    } else {
-        debug!("not parse response");
+    if this.response_stream == ptr::null_mut() {
+        this.response_stream = unsafe { gmime_sys::g_mime_stream_mem_new() };
+    }
+    unsafe {
+        gmime_sys::g_mime_stream_reset(this.response_stream);
     }
 
+    let mut string = String::new();
+
+    for (k, v) in this.response_headers.iter() {
+        string.push_str(k);
+        string.push_str(": ");
+        string.push_str(v);
+        string.push_str("\r\n");
+    }
+
+    string.push_str("\r\n");
+
+    unsafe {
+        gmime_sys::g_mime_stream_write(
+            this.response_stream,
+            string.as_ptr() as *const c_char,
+            string.len(),
+        );
+    }
     0
 }
 
 extern "C" fn on_response_body(parser: *const Parser, data: *const c_char, length: isize) -> i32 {
-    trace!("on_response_body");
+    let this = unsafe { &mut *((*parser).data as *mut HTTPDissector) };
+    if !this.parse_response {
+        return 0;
+    }
+    unsafe {
+        gmime_sys::g_mime_stream_write(this.response_stream, data, length as usize);
+    }
     0
 }
 
 extern "C" fn on_response_message_complete(parser: *const Parser) -> i32 {
-    trace!("on_response_message_complete");
+    let this = unsafe { &mut *((*parser).data as *mut HTTPDissector) };
+    if !this.parse_response {
+        return 0;
+    }
+    unsafe {
+        gmime_sys::g_mime_stream_seek(this.response_stream, 0, 0);
+    }
     0
 }
 
@@ -265,14 +299,14 @@ pub struct HTTPDissector {
     request_content_type: String,
     request_header: String,
     request_headers: HashMap<String, String>,
-    request_stream: *const gmime_sys::GMimeStream,
+    request_stream: *mut gmime_sys::GMimeStream,
     parse_response: bool,
     response_content_type: String,
     response_header: String,
     response_headers: HashMap<String, String>,
     request_parser: *const Parser,
     response_parser: *const Parser,
-    response_stream: *const gmime_sys::GMimeStream,
+    response_stream: *mut gmime_sys::GMimeStream,
 }
 
 impl HTTPDissector {
@@ -290,14 +324,14 @@ impl HTTPDissector {
             request_content_type: String::new(),
             request_header: String::new(),
             request_headers: HashMap::new(),
-            request_stream: ptr::null() as *const gmime_sys::GMimeStream,
+            request_stream: ptr::null_mut() as *mut gmime_sys::GMimeStream,
             parse_response: true,
             response_content_type: String::new(),
             response_header: String::new(),
             response_headers: HashMap::new(),
             request_parser: ptr::null(),
             response_parser: ptr::null(),
-            response_stream: ptr::null() as *const gmime_sys::GMimeStream,
+            response_stream: ptr::null_mut() as *mut gmime_sys::GMimeStream,
         }));
 
         let this = http.as_ptr() as *const c_char;
@@ -323,6 +357,14 @@ impl Drop for HTTPDissector {
         unsafe {
             free(self.request_parser as *mut c_void);
             free(self.response_parser as *mut c_void);
+
+            if self.request_stream != ptr::null_mut() {
+                gobject_2_0_sys::g_object_unref(self.request_stream as *mut c_void);
+            }
+
+            if self.response_stream != ptr::null_mut() {
+                gobject_2_0_sys::g_object_unref(self.response_stream as *mut c_void);
+            }
         }
     }
 }

@@ -9,7 +9,7 @@ dissector:
   - http
   - smb
 
-skip_http_content_key:
+parse_http_content_key:
   - txt
   - html
   - json

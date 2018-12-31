@@ -3,6 +3,7 @@ extern crate log;
 extern crate aho_corasick;
 extern crate gmime;
 extern crate gmime_sys;
+extern crate gobject_2_0_sys;
 extern crate libc;
 extern crate yaml_rust;
 
