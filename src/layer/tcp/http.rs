@@ -7,7 +7,7 @@ use libc::{c_char, c_void, free, malloc, strlen};
 use mime::MimeParser;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ffi::{CStr};
+use std::ffi::CStr;
 use std::mem;
 use std::ptr;
 use std::rc::Rc;
@@ -62,7 +62,7 @@ struct Parser {
 }
 
 type HTTPDataCallback =
-extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
+    extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
 
 type HTTPCallback = extern "C" fn(_parser: *const Parser) -> i32;
 
@@ -232,7 +232,8 @@ extern "C" fn on_status(parser: *const Parser, data: *const c_char, length: isiz
             let s =
                 String::from_utf8_lossy(slice::from_raw_parts(data as *const u8, length as usize));
             trace!("http error : {} {}", (*parser).status_code, s);
-        } else {}
+        } else {
+        }
     }
     0
 }
