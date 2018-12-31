@@ -1,5 +1,7 @@
 use crate::detector::Detector;
 use crate::layer::TCPDissector;
+use config::Configure;
+use gmime_sys;
 use libc::{c_char, c_void, free, malloc, strlen};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -9,6 +11,7 @@ use std::mem;
 use std::ptr;
 use std::rc::Rc;
 use std::slice;
+use std::sync::Arc;
 use std::vec;
 
 const REQUEST_SETTING: ParserSettings = ParserSettings {
@@ -98,22 +101,19 @@ extern "C" fn on_chunk_complete(_parser: *const Parser) -> i32 {
 }
 
 extern "C" fn on_request_message_begin(parser: *const Parser) -> i32 {
-    unsafe {
-        let this = (*parser).data as *mut HTTPDissector;
-        (*this).parse_request = true;
-        (*this).request_headers.clear();
-        (*this).request_content_type.clear();
-    }
+    let this = unsafe { &mut *((*parser).data as *mut HTTPDissector) };
+    this.parse_request = true;
+    this.request_headers.clear();
+    this.request_content_type.clear();
+
     0
 }
 
 extern "C" fn on_url(parser: *const Parser, data: *const c_char, length: isize) -> i32 {
-    unsafe {
-        let this = (*parser).data as *mut HTTPDissector;
-        if (*this).url.is_empty() {
-            let data = slice::from_raw_parts(data as *const u8, length as usize);
-            (*this).url = String::from_utf8_lossy(data).to_lowercase();
-        }
+    let this = unsafe { &mut *((*parser).data as *mut HTTPDissector) };
+    if (this).url.is_empty() {
+        let data = unsafe { slice::from_raw_parts(data as *const u8, length as usize) };
+        this.url = String::from_utf8_lossy(data).to_lowercase();
     }
     0
 }
@@ -123,13 +123,9 @@ extern "C" fn on_request_header_field(
     data: *const c_char,
     length: isize,
 ) -> i32 {
-    unsafe {
-        let data = slice::from_raw_parts(data as *const u8, length as usize);
-        let header = String::from_utf8_lossy(data).to_lowercase();
-
-        let this = (*parser).data as *mut HTTPDissector;
-        (*this).request_header = header;
-    }
+    let this = unsafe { &mut *((*parser).data as *mut HTTPDissector) };
+    let data = unsafe { slice::from_raw_parts(data as *const u8, length as usize) };
+    this.request_header = String::from_utf8_lossy(data).to_lowercase();
     0
 }
 
@@ -138,31 +134,26 @@ extern "C" fn on_request_header_value(
     data: *const c_char,
     length: isize,
 ) -> i32 {
-    unsafe {
-        let data = slice::from_raw_parts(data as *const u8, length as usize);
-        let value = String::from_utf8_lossy(data).to_lowercase();
+    let this = unsafe { &mut *((*parser).data as *mut HTTPDissector) };
+    let data = unsafe { slice::from_raw_parts(data as *const u8, length as usize) };
+    let header = this.request_header.clone();
+    let value = String::from_utf8_lossy(data).to_lowercase();
 
-        let this = (*parser).data as *mut HTTPDissector;
-        let header = (*this).request_header.clone();
-
-        (*this).request_headers.insert(header, value);
-    }
+    (*this).request_headers.insert(header, value);
     0
 }
 
 extern "C" fn on_request_headers_complete(parser: *const Parser) -> i32 {
-    unsafe {
-        let this = (*parser).data as *mut HTTPDissector;
+    let this = unsafe { &mut *((*parser).data as *mut HTTPDissector) };
 
-        let result = (*this).request_headers.get("content-type");
-        match result {
-            Some(value) => {
-                debug!("update request content-type {}", value);
-                (*this).request_content_type = value.clone();
-            }
-            None => {
-                debug!("no Content-Type");
-            }
+    let result = this.request_headers.get("content-type");
+    match result {
+        Some(value) => {
+            debug!("update request content-type {}", value);
+            this.request_content_type = value.clone();
+        }
+        None => {
+            debug!("no Content-Type");
         }
     }
     0
@@ -179,12 +170,11 @@ extern "C" fn on_request_message_complete(parser: *const Parser) -> i32 {
 }
 
 extern "C" fn on_response_message_begin(parser: *const Parser) -> i32 {
-    unsafe {
-        let this = (*parser).data as *mut HTTPDissector;
-        (*this).parse_response = true;
-        (*this).response_headers.clear();
-        (*this).response_content_type.clear();
-    }
+    let this = unsafe { &mut *((*parser).data as *mut HTTPDissector) };
+
+    this.parse_response = true;
+    this.response_headers.clear();
+    this.response_content_type.clear();
     0
 }
 
@@ -194,7 +184,9 @@ extern "C" fn on_status(parser: *const Parser, data: *const c_char, length: isiz
             let s =
                 String::from_utf8_lossy(slice::from_raw_parts(data as *const u8, length as usize));
             trace!("http error : {} {}", (*parser).status_code, s);
-        } else {}
+        } else {
+
+        }
     }
     0
 }
@@ -204,11 +196,12 @@ extern "C" fn on_response_header_field(
     data: *const c_char,
     length: isize,
 ) -> i32 {
-    unsafe {
-        let s = String::from_utf8_lossy(slice::from_raw_parts(data as *const u8, length as usize)).to_lowercase();
-        let this = (*parser).data as *mut HTTPDissector;
-        (*this).response_header = s;
-    }
+    let this = unsafe { &mut *((*parser).data as *mut HTTPDissector) };
+    let key = unsafe {
+        String::from_utf8_lossy(slice::from_raw_parts(data as *const u8, length as usize))
+            .to_lowercase()
+    };
+    this.response_header = key;
     0
 }
 
@@ -217,33 +210,39 @@ extern "C" fn on_response_header_value(
     data: *const c_char,
     length: isize,
 ) -> i32 {
-    unsafe {
-        let v = String::from_utf8_lossy(slice::from_raw_parts(data as *const u8, length as usize)).to_lowercase();
-
-        let this = (*parser).data as *mut HTTPDissector;
-
-        let k = (*this).response_header.clone();
-
-        (*this).response_headers.insert(k, v);
-    }
+    let this = unsafe { &mut *((*parser).data as *mut HTTPDissector) };
+    let value = unsafe {
+        String::from_utf8_lossy(slice::from_raw_parts(data as *const u8, length as usize))
+            .to_lowercase()
+    };
+    let key = this.response_header.clone();
+    this.response_headers.insert(key, value);
     0
 }
 
 extern "C" fn on_response_headers_complete(parser: *const Parser) -> i32 {
-    unsafe {
-        let this = (*parser).data as *mut HTTPDissector;
+    let this = unsafe { &mut *((*parser).data as *mut HTTPDissector) };
 
-        let result = (*this).response_headers.get("content-type");
-        match result {
-            Some(value) => {
-                debug!("update response content-type {}", value);
-                (*this).response_content_type = value.clone();
-            }
-            None => {
-                debug!("no content-type");
-            }
+    let result = this.response_headers.get("content-type");
+    match result {
+        Some(value) => {
+            debug!("update response content-type {}", value);
+            this.response_content_type = value.clone();
+        }
+        None => {
+            debug!("no content-type");
         }
     }
+    this.parse_response = this
+        .config
+        .is_parse_http_content(&this.response_content_type);
+
+    if (this.parse_response) {
+        debug!("parse response");
+    } else {
+        debug!("not parse response");
+    }
+
     0
 }
 
@@ -259,34 +258,44 @@ extern "C" fn on_response_message_complete(parser: *const Parser) -> i32 {
 
 pub struct HTTPDissector {
     url: String,
+    config: Arc<Configure>,
     parse_request: bool,
     request_content_type: String,
     request_header: String,
     request_headers: HashMap<String, String>,
+    request_stream: *const gmime_sys::GMimeStream,
     parse_response: bool,
     response_content_type: String,
     response_header: String,
     response_headers: HashMap<String, String>,
     request_parser: *const Parser,
     response_parser: *const Parser,
+    response_stream: *const gmime_sys::GMimeStream,
 }
 
 impl HTTPDissector {
-    pub fn new(detector: Rc<Detector>, flow: *const c_char) -> Rc<RefCell<TCPDissector>> {
+    pub fn new(
+        detector: Rc<Detector>,
+        flow: *const c_char,
+        config: Arc<Configure>,
+    ) -> Rc<RefCell<TCPDissector>> {
         let url = detector.get_http_url(flow);
         trace!("url = {}", url);
         let http = Rc::new(RefCell::new(HTTPDissector {
             url,
+            config,
             parse_request: true,
             request_content_type: String::new(),
             request_header: String::new(),
             request_headers: HashMap::new(),
+            request_stream: ptr::null() as *const gmime_sys::GMimeStream,
             parse_response: true,
             response_content_type: String::new(),
             response_header: String::new(),
             response_headers: HashMap::new(),
             request_parser: ptr::null(),
             response_parser: ptr::null(),
+            response_stream: ptr::null() as *const gmime_sys::GMimeStream,
         }));
 
         let this = http.as_ptr() as *const c_char;

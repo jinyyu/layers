@@ -109,7 +109,6 @@ impl Packet {
         return Arc::new(packet);
     }
 
-    #[allow(non_snake_case)]
     fn decode_ethernet(&mut self) {
         let mut offset: usize = 0;
         let mut left: usize = self.data.len();

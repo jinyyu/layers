@@ -40,6 +40,7 @@ struct Main {
 
 impl Main {
     fn new(conf: Arc<config::Configure>) -> Main {
+        mime::MimeParser::init();
         let daq = daq::init(conf.clone());
         let dispatcher = dispatcher::init(conf.clone());
 
@@ -73,6 +74,12 @@ impl Main {
     fn stop(&mut self) {
         self.daq.stop();
         self.dispatcher.stop();
+    }
+}
+
+impl Drop for Main {
+    fn drop(&mut self) {
+        mime::MimeParser::shutdown();
     }
 }
 

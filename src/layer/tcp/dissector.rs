@@ -29,9 +29,10 @@ impl TCPDissector for DefaultDissector {
     }
 }
 
+type DissectorAllocaCallback = Fn(Rc<Detector>, *const c_char) -> Rc<RefCell<TCPDissector>>;
+
 pub struct TCPDissectorAllocator {
-    protocol:
-        HashMap<u16, fn(detector: Rc<Detector>, flow: *const c_char) -> Rc<RefCell<TCPDissector>>>,
+    protocol: HashMap<u16, Arc<DissectorAllocaCallback>>,
 }
 
 impl TCPDissectorAllocator {
@@ -41,12 +42,18 @@ impl TCPDissectorAllocator {
         };
 
         if conf.is_dissector_enable("http") {
-            let cb = HTTPDissector::new;
-            allocator.protocol.insert(Proto::HTTP, cb);
-            allocator.protocol.insert(Proto::HTTP_ACTIVESYNC, cb);
-            allocator.protocol.insert(Proto::HTTP_CONNECT, cb);
-            allocator.protocol.insert(Proto::HTTP_DOWNLOAD, cb);
-            allocator.protocol.insert(Proto::HTTP_PROXY, cb);
+            let conf = conf.clone();
+            let cb = Arc::new(move |detector: Rc<Detector>, flow: *const c_char| {
+                HTTPDissector::new(detector, flow, conf.clone())
+            });
+
+            allocator.protocol.insert(Proto::HTTP, cb.clone());
+            allocator
+                .protocol
+                .insert(Proto::HTTP_ACTIVESYNC, cb.clone());
+            allocator.protocol.insert(Proto::HTTP_CONNECT, cb.clone());
+            allocator.protocol.insert(Proto::HTTP_DOWNLOAD, cb.clone());
+            allocator.protocol.insert(Proto::HTTP_PROXY, cb.clone());
         }
 
         allocator

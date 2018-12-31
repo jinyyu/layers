@@ -8,3 +8,12 @@ worker_thread: 4
 dissector:
   - http
   - smb
+
+skip_http_content_key:
+  - txt
+  - html
+  - json
+  - js
+  - png
+  - jpg
+  - jpeg
