@@ -4,17 +4,15 @@ use config::Configure;
 use gmime_sys;
 use gobject_2_0_sys;
 use libc::{c_char, c_void, free, malloc, strlen};
+use mime::MimeParser;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ffi::{CStr, CString};
+use std::ffi::{CStr};
 use std::mem;
 use std::ptr;
 use std::rc::Rc;
 use std::slice;
 use std::sync::Arc;
-
-use std::fs::File;
-use std::io::prelude::*;
 
 const REQUEST_SETTING: ParserSettings = ParserSettings {
     on_message_begin: on_request_message_begin,
@@ -64,7 +62,7 @@ struct Parser {
 }
 
 type HTTPDataCallback =
-    extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
+extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
 
 type HTTPCallback = extern "C" fn(_parser: *const Parser) -> i32;
 
@@ -158,16 +156,64 @@ extern "C" fn on_request_headers_complete(parser: *const Parser) -> i32 {
             debug!("no Content-Type");
         }
     }
+
+    this.parse_request = this
+        .config
+        .is_parse_http_content(&this.request_content_type);
+
+    if !this.parse_request {
+        return 0;
+    }
+
+    if this.request_stream == ptr::null_mut() {
+        this.request_stream = unsafe { gmime_sys::g_mime_stream_mem_new() };
+    }
+    unsafe {
+        gmime_sys::g_mime_stream_reset(this.request_stream);
+    }
+
+    let mut string = String::new();
+
+    for (k, v) in this.request_headers.iter() {
+        string.push_str(k);
+        string.push_str(": ");
+        string.push_str(v);
+        string.push_str("\r\n");
+    }
+
+    string.push_str("\r\n");
+
+    unsafe {
+        gmime_sys::g_mime_stream_write(
+            this.request_stream,
+            string.as_ptr() as *const c_char,
+            string.len(),
+        );
+    }
+
     0
 }
 
 extern "C" fn on_request_body(parser: *const Parser, data: *const c_char, length: isize) -> i32 {
-    trace!("on_request_body");
+    let this = unsafe { &mut *((*parser).data as *mut HTTPDissector) };
+    if !this.parse_request {
+        return 0;
+    }
+    unsafe {
+        gmime_sys::g_mime_stream_write(this.request_stream, data, length as usize);
+    }
     0
 }
 
 extern "C" fn on_request_message_complete(parser: *const Parser) -> i32 {
-    trace!("on_request_message_complete");
+    let this = unsafe { &mut *((*parser).data as *mut HTTPDissector) };
+    if !this.parse_request {
+        return 0;
+    }
+
+    let stream = this.request_stream;
+
+    this.parse_stream(stream);
     0
 }
 
@@ -186,8 +232,7 @@ extern "C" fn on_status(parser: *const Parser, data: *const c_char, length: isiz
             let s =
                 String::from_utf8_lossy(slice::from_raw_parts(data as *const u8, length as usize));
             trace!("http error : {} {}", (*parser).status_code, s);
-        } else {
-        }
+        } else {}
     }
     0
 }
@@ -286,9 +331,10 @@ extern "C" fn on_response_message_complete(parser: *const Parser) -> i32 {
     if !this.parse_response {
         return 0;
     }
-    unsafe {
-        gmime_sys::g_mime_stream_seek(this.response_stream, 0, 0);
-    }
+
+    let stream = this.response_stream;
+
+    this.parse_stream(stream);
     0
 }
 
@@ -349,6 +395,23 @@ impl HTTPDissector {
             http.borrow_mut().response_parser = response_parser;
         }
         return http;
+    }
+
+    fn parse_stream(&mut self, stream: *mut gmime_sys::GMimeStream) {
+        unsafe {
+            gmime_sys::g_mime_stream_seek(stream, 0, 0);
+        }
+        let mut parser = MimeParser::new(stream);
+        let result = parser.parse();
+        match result {
+            Err(_) => {
+                debug!("mime parse error ");
+            }
+
+            Ok(_) => {
+                debug!("mime parse success");
+            }
+        }
     }
 }
 
