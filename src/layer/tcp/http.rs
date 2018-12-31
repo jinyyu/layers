@@ -5,14 +5,12 @@ use gmime_sys;
 use libc::{c_char, c_void, free, malloc, strlen};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ffi::{CStr, CString};
-use std::io::prelude::*;
+use std::ffi::CStr;
 use std::mem;
 use std::ptr;
 use std::rc::Rc;
 use std::slice;
 use std::sync::Arc;
-use std::vec;
 
 const REQUEST_SETTING: ParserSettings = ParserSettings {
     on_message_begin: on_request_message_begin,
@@ -62,7 +60,7 @@ struct Parser {
 }
 
 type HTTPDataCallback =
-extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
+    extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
 
 type HTTPCallback = extern "C" fn(_parser: *const Parser) -> i32;
 
@@ -237,7 +235,7 @@ extern "C" fn on_response_headers_complete(parser: *const Parser) -> i32 {
         .config
         .is_parse_http_content(&this.response_content_type);
 
-    if (this.parse_response) {
+    if this.parse_response {
         debug!("parse response");
     } else {
         debug!("not parse response");

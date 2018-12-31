@@ -1,8 +1,7 @@
-use aho_corasick::{AcAutomaton, Automaton, Match};
+use aho_corasick::{AcAutomaton, Automaton};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
-use std::mem;
 use std::sync::Arc;
 use yaml_rust::yaml;
 
@@ -44,8 +43,6 @@ impl Configure {
         }
     }
 }
-
-static mut CONFIG_PTR: u64 = 0;
 
 pub fn load(path: String) -> Arc<Configure> {
     let mut f = File::open(path).unwrap();

@@ -25,8 +25,8 @@ pub struct Packet {
 
     pub tcp: *const TCPHeader,
 
-    _payload: *const u8,
-    _payload_len: usize,
+    payload: *const u8,
+    payload_len: usize,
 }
 
 unsafe impl Send for Packet {}
@@ -77,7 +77,7 @@ impl Packet {
 
     pub fn tcp_payload(&self) -> &[u8] {
         assert!(self.flag & Packet::TCP_OR_UDP > 0);
-        unsafe { slice::from_raw_parts(self._payload, self._payload_len) }
+        unsafe { slice::from_raw_parts(self.payload, self.payload_len) }
     }
 
     pub fn new(timestamp: u64, data: *const u8, size: usize) -> Arc<Packet> {
@@ -97,8 +97,8 @@ impl Packet {
             src_ip: 0,
             dst_ip: 0,
 
-            _payload: ptr::null(),
-            _payload_len: 0,
+            payload: ptr::null(),
+            payload_len: 0,
         };
         if size < mem::size_of::<EthernetHeader>() {
             debug!("invalid packet, size = {}", size);
@@ -116,19 +116,19 @@ impl Packet {
 
         offset += mem::size_of::<EthernetHeader>();
         left -= mem::size_of::<EthernetHeader>();
-        unsafe {
-            let eth_type = EthernetType(inet::ntohs((*self.ethernet).eth_type));
-            match eth_type {
-                EthernetType::IP => {
-                    self.flag |= Packet::IPV4;
-                    self.decode_ipv4(offset, left);
-                }
-                _ => {
-                    trace!(
-                        "ethernet type {}",
-                        EthernetType::ethernet_type_string(eth_type)
-                    );
-                }
+
+        let eth_type = unsafe { EthernetType(inet::ntohs((*self.ethernet).eth_type)) };
+
+        match eth_type {
+            EthernetType::IP => {
+                self.flag |= Packet::IPV4;
+                self.decode_ipv4(offset, left);
+            }
+            _ => {
+                trace!(
+                    "ethernet type {}",
+                    EthernetType::ethernet_type_string(eth_type)
+                );
             }
         }
     }
@@ -141,60 +141,59 @@ impl Packet {
             return;
         }
 
-        unsafe {
-            let ip = self.data.as_ptr().offset(offset as isize) as *mut IPV4Header;
-            self.ipv4 = ip;
-            self.src_ip = (*ip).src;
-            self.dst_ip = (*ip).dst;
+        let ipv4_header = unsafe { self.data.as_ptr().offset(offset as isize) as *mut IPV4Header };
+        let ip = unsafe { &mut *ipv4_header };
 
-            if (*ip).version() != 4 {
-                debug!("bad version {}", (*self.ipv4).version());
-                self.flag |= Packet::BAD_PACKET;
-                return;
+        self.ipv4 = ipv4_header;
+        self.src_ip = ip.src;
+        self.dst_ip = ip.dst;
+
+        if ip.version() != 4 {
+            debug!("bad version {}", ip.version());
+            self.flag |= Packet::BAD_PACKET;
+            return;
+        }
+        let header_len = ip.header_len() as usize;
+        let ip_layer_len = ip.total_length() as usize;
+        self.ip_layer_len = ip_layer_len;
+
+        if left < self.ip_layer_len || self.ip_layer_len < header_len {
+            debug!("bad packet {}, {}, {}", left, self.ip_layer_len, header_len);
+            self.flag |= Packet::BAD_PACKET;
+            return;
+        }
+
+        let proto = IPProto(ip.proto);
+
+        match proto {
+            IPProto::TCP => {
+                self.flag |= Packet::TCP;
+                self.decode_tcp(offset + header_len, ip_layer_len - header_len);
             }
-            let header_len = (*ip).header_len() as usize;
-            let ip_layer_len = (*ip).total_length() as usize;
-            self.ip_layer_len = ip_layer_len;
 
-            if left < self.ip_layer_len || self.ip_layer_len < header_len {
-                debug!("bad packet {}, {}, {}", left, self.ip_layer_len, header_len);
-                self.flag |= Packet::BAD_PACKET;
-                return;
-            }
-
-            let proto = IPProto((*ip).proto);
-
-            match proto {
-                IPProto::TCP => {
-                    self.flag |= Packet::TCP;
-                    self.decode_tcp(offset + header_len, ip_layer_len - header_len);
-                }
-
-                _ => {
-                    trace!("ip type {}", proto.to_string());
-                }
+            _ => {
+                trace!("ip type {}", proto.to_string());
             }
         }
     }
 
     fn decode_tcp(&mut self, offset: usize, left: usize) {
         assert!(self.flag & Packet::TCP > 0);
-        unsafe {
-            let tcp = self.data.as_ptr().offset(offset as isize) as *mut TCPHeader;
-            self.tcp = tcp;
-            self.src_port = inet::ntohs((*tcp).sport);
-            self.dst_port = inet::ntohs((*tcp).dport);
+        let tcp = unsafe { &mut *(self.data.as_ptr().offset(offset as isize) as *mut TCPHeader) };
 
-            let header_len = (*self.tcp).header_len() as usize;
-            if left < header_len {
-                debug!("bad tcp packet {} {}", left, header_len);
-                self.flag |= Packet::BAD_PACKET;
-                return;
-            }
+        self.tcp = tcp;
+        self.src_port = unsafe { inet::ntohs(tcp.sport) };
+        self.dst_port = unsafe { inet::ntohs(tcp.dport) };
 
-            self._payload_len = left - header_len;
-            let offset = offset + header_len;
-            self._payload = self.data.as_ptr().offset(offset as isize) as *const u8;
+        let header_len = unsafe { (*self.tcp).header_len() as usize };
+        if left < header_len {
+            debug!("bad tcp packet {} {}", left, header_len);
+            self.flag |= Packet::BAD_PACKET;
+            return;
         }
+
+        self.payload_len = left - header_len;
+        let offset = offset + header_len;
+        self.payload = unsafe { self.data.as_ptr().offset(offset as isize) as *const u8 };
     }
 }

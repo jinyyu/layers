@@ -1,5 +1,3 @@
-use aho_corasick::{AcAutomaton, Automaton, Match};
-
 pub struct MimeParser {}
 
 impl MimeParser {
