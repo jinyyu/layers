@@ -33,7 +33,7 @@ impl Proto {
     pub const BGP: u16 = 13;
     pub const SNMP: u16 = 14;
     pub const XDMCP: u16 = 15;
-    pub const SMB: u16 = 16;
+    pub const SMBV1: u16 = 16;
     pub const SYSLOG: u16 = 17;
     pub const DHCP: u16 = 18;
     pub const POSTGRES: u16 = 19;
@@ -59,9 +59,9 @@ impl Proto {
     pub const MUSICALLY: u16 = 39;
     pub const MEMCACHED: u16 = 40;
 
-    pub const FREE_41: u16 = 41;
-    pub const FREE_42: u16 = 42;
-    pub const FREE_43: u16 = 43;
+    pub const SMBV23: u16 = 41;
+    pub const MINING: u16 = 42;
+    pub const NEST_LOG_SINK: u16 = 43;
     pub const FREE_44: u16 = 44;
     pub const FREE_45: u16 = 45;
     pub const FREE_46: u16 = 46;
@@ -287,10 +287,15 @@ extern "C" {
         dst_id: *const c_char,
     ) -> Proto;
 
-    pub fn ndpi_detection_giveup(ctx: *const c_char, flow: *const c_char) -> Proto;
+    pub fn ndpi_detection_giveup(
+        ctx: *const c_char,
+        flow: *const c_char,
+        enable_guess: u8,
+    ) -> Proto;
 
     pub fn ndpi_guess_undetected_protocol(
         ctx: *const c_char,
+        flow: *const c_char,
         proto: u8,
         src_ip: u32,
         src_port: u16,
@@ -358,13 +363,14 @@ impl Detector {
         }
     }
 
-    pub fn detect_give_up(&self, flow: *const c_char) -> Proto {
-        unsafe { ndpi_detection_giveup(self.ctx, flow) }
+    pub fn detect_give_up(&self, flow: *const c_char, enable_guss: u8) -> Proto {
+        unsafe { ndpi_detection_giveup(self.ctx, flow, enable_guss) }
     }
 
     // host byte order
     pub fn guess_undetected_protocol(
         &self,
+        flow: *const c_char,
         src_ip: u32,
         src_port: u16,
         dst_ip: u32,
@@ -373,6 +379,7 @@ impl Detector {
         unsafe {
             ndpi_guess_undetected_protocol(
                 self.ctx,
+                flow,
                 self.ip_proto.0,
                 src_ip,
                 src_port,

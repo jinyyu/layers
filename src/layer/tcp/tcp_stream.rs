@@ -209,13 +209,14 @@ impl TCPStream {
         if self.state != State::DetectTrying {
             return;
         }
-        self.proto = self.detector.detect_give_up(self.flow);
+        self.proto = self.detector.detect_give_up(self.flow, 1);
         if self.proto.success() {
             self.on_detect_success();
             return;
         }
 
         self.proto = self.detector.guess_undetected_protocol(
+            self.flow,
             unsafe { inet::ntohl(self.client) },
             self.client_port,
             unsafe { inet::ntohl(self.server) },

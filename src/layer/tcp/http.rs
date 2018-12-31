@@ -235,6 +235,10 @@ extern "C" fn on_response_headers_complete(parser: *const Parser) -> i32 {
         .config
         .is_parse_http_content(&this.response_content_type);
 
+    if !this.parse_response {
+        return 0;
+    }
+
     if this.parse_response {
         debug!("parse response");
     } else {
