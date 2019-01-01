@@ -5,6 +5,7 @@ extern crate gmime;
 extern crate gmime_sys;
 extern crate gobject_2_0_sys;
 extern crate libc;
+extern crate magic;
 extern crate yaml_rust;
 
 pub mod config;

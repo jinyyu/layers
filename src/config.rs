@@ -71,7 +71,7 @@ pub fn load(path: String) -> Arc<Configure> {
         .iter()
     {
         let key = key.as_str().expect("invalid config");
-        info!("skip http content key {}", key);
+        info!("parse http content key {}", key);
         parse_http_content_keys.push(key.to_string());
     }
 

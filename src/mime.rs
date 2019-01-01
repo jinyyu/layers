@@ -1,7 +1,9 @@
 use gmime_sys;
 use gobject_2_0_sys;
 use libc::{c_char, c_void};
+use std::ffi::{CStr, CString};
 use std::ptr;
+use std::slice;
 
 extern "C" {
     fn new_mime_message(_msg: *mut gmime_sys::GMimeObject) -> *mut c_char;
@@ -13,7 +15,7 @@ extern "C" {
             _len: u32,
             _is_text: bool,
             _filename: *const c_char,
-            _content: *const gmime_sys::GMimeContentType,
+            _content: *mut gmime_sys::GMimeContentType,
             _user: *mut c_char,
         ),
         _user: *mut c_char,
@@ -23,7 +25,10 @@ extern "C" {
 pub struct MimeParser {
     stream: *mut gmime_sys::GMimeStream,
     root_msg: *mut c_char,
+    file_data_callback: Option<Box<FileDataCallback>>,
 }
+
+type FileDataCallback = Fn(&[u8], bool, String, String);
 
 impl MimeParser {
     pub fn init() {
@@ -41,10 +46,12 @@ impl MimeParser {
         MimeParser {
             stream,
             root_msg: ptr::null_mut(),
+            file_data_callback: None,
         }
     }
 
-    pub fn parse(&mut self) -> Result<(), ()> {
+    pub fn parse(&mut self, callback: Box<FileDataCallback>) -> Result<(), ()> {
+        self.file_data_callback = Some(callback);
         unsafe {
             let parser = gmime_sys::g_mime_parser_new_with_stream(self.stream);
             gmime_sys::g_mime_parser_set_format(parser, gmime_sys::GMIME_FORMAT_MESSAGE);
@@ -71,15 +78,52 @@ impl MimeParser {
         Ok(())
     }
 
+    fn on_file_data_callback(
+        &self,
+        data: &[u8],
+        is_test: bool,
+        filename: String,
+        mime_type: String,
+    ) {
+        match self.file_data_callback.as_ref() {
+            Some(cb) => {
+                cb(data, is_test, filename, mime_type);
+            }
+            None => {}
+        };
+    }
+
     extern "C" fn on_file_data(
         data: *const c_char,
         len: u32,
         is_text: bool,
         filename: *const c_char,
-        content: *const gmime_sys::GMimeContentType,
+        content: *mut gmime_sys::GMimeContentType,
         user: *mut c_char,
     ) {
-        let this = unsafe { &*(user as *mut MimeParser) };
+        unsafe {
+            let name;
+            if filename != ptr::null_mut() {
+                let filename = CStr::from_ptr(filename);
+                name = filename.to_string_lossy().into_owned();
+            } else {
+                name = String::new();
+            }
+
+            let mime_type;
+            if content != ptr::null_mut() {
+                let raw = gmime_sys::g_mime_content_type_get_mime_type(content);
+                mime_type = CString::from_raw(raw as *mut c_char)
+                    .to_string_lossy()
+                    .into_owned();
+            } else {
+                mime_type = String::new();
+            }
+
+            let this = &*(user as *mut MimeParser);
+            let date = slice::from_raw_parts(data as *const u8, len as usize);
+            this.on_file_data_callback(date, is_text, name, mime_type);
+        }
     }
 }
 

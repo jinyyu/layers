@@ -17,3 +17,4 @@ parse_http_content_key:
   - png
   - jpg
   - jpeg
+  - octet-stream
