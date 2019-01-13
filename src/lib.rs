@@ -7,6 +7,8 @@ extern crate gobject_2_0_sys;
 extern crate libc;
 extern crate magic;
 extern crate yaml_rust;
+#[macro_use]
+extern crate lazy_static;
 
 pub mod config;
 pub mod daq;

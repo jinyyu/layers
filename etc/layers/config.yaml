@@ -9,12 +9,14 @@ dissector:
   - http
   - smb
 
-parse_http_content_key:
+skip_http_content_key:
   - txt
   - html
   - json
   - js
-  - png
-  - jpg
-  - jpeg
-  - octet-stream
+  - text
+  - javascript
+#  - png
+#  - jpg
+#  - jpeg
+#  - image

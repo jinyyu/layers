@@ -4,6 +4,7 @@ use config::Configure;
 use gmime_sys;
 use gobject_2_0_sys;
 use libc::{c_char, c_void, free, malloc, strlen};
+use mime;
 use mime::MimeParser;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -62,7 +63,7 @@ struct Parser {
 }
 
 type HTTPDataCallback =
-extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
+    extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
 
 type HTTPCallback = extern "C" fn(_parser: *const Parser) -> i32;
 
@@ -149,11 +150,11 @@ extern "C" fn on_request_headers_complete(parser: *const Parser) -> i32 {
     let result = this.request_headers.get("content-type");
     match result {
         Some(value) => {
-            debug!("update request content-type {}", value);
+            trace!("update request content-type {}", value);
             this.request_content_type = value.clone();
         }
         None => {
-            debug!("no Content-Type");
+            trace!("no Content-Type");
         }
     }
 
@@ -212,7 +213,6 @@ extern "C" fn on_request_message_complete(parser: *const Parser) -> i32 {
     }
 
     let stream = this.request_stream;
-
     this.parse_stream(stream);
     0
 }
@@ -232,7 +232,8 @@ extern "C" fn on_status(parser: *const Parser, data: *const c_char, length: isiz
             let s =
                 String::from_utf8_lossy(slice::from_raw_parts(data as *const u8, length as usize));
             trace!("http error : {} {}", (*parser).status_code, s);
-        } else {}
+        } else {
+        }
     }
     0
 }
@@ -272,11 +273,11 @@ extern "C" fn on_response_headers_complete(parser: *const Parser) -> i32 {
     let result = this.response_headers.get("content-type");
     match result {
         Some(value) => {
-            debug!("update response content-type {}", value);
+            trace!("update response content-type {}", value);
             this.response_content_type = value.clone();
         }
         None => {
-            debug!("no content-type");
+            trace!("no content-type");
         }
     }
     this.parse_response = this
@@ -333,7 +334,6 @@ extern "C" fn on_response_message_complete(parser: *const Parser) -> i32 {
     }
 
     let stream = this.response_stream;
-
     this.parse_stream(stream);
     0
 }
@@ -402,18 +402,42 @@ impl HTTPDissector {
             gmime_sys::g_mime_stream_seek(stream, 0, 0);
         }
         let mut parser = MimeParser::new(stream);
-        let cb = Box::new(|data: &[u8], is_test: bool, filename: String, mime_type: String| {
-            debug!("is text {}", is_test)
-        });
+        let cb = Box::new(
+            move |data: &[u8], is_test: bool, filename: String, mime_type: String| {
+                if is_test {
+                    debug!("text {}", mime_type);
+                    return;
+                }
+
+                let result = mime::magic_buffer(data);
+                match result {
+                    Some(type_str) => {
+                        debug!("buffer type = {}" , type_str);
+                    }
+                    None => {
+                        debug!(" buffer not find {}", mime_type);
+                    }
+                }
+
+                let result = mime::find_magic_type(&mime_type);
+                match result {
+                    Some(type_str) => {
+                        debug!("mime type = {}" , type_str);
+                    }
+                    None => {
+                        debug!("mime not find {}", mime_type);
+                    }
+                }
+
+            },
+        );
         let result = parser.parse(cb);
         match result {
             Err(_) => {
                 debug!("mime parse error ");
             }
 
-            Ok(_) => {
-                debug!("mime parse success");
-            }
+            Ok(_) => {}
         }
     }
 }
