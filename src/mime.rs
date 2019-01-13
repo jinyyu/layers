@@ -169,12 +169,7 @@ pub fn magic_buffer(data: &[u8]) -> Option<&'static str> {
 
     let mime_type = mime_type.unwrap();
     if mime_type != "application/x-dosexec" {
-        let result = find_magic_type(&mime_type);
-        if result.is_some() {
-            return result;
-        }
-        return None;
-
+        return find_magic_type(&mime_type);
     }
 
     let compress = magic_compress_buffer(data);
@@ -191,8 +186,6 @@ pub fn magic_buffer(data: &[u8]) -> Option<&'static str> {
     } else {
         return Some("exe");
     }
-
-    return None;
 }
 
 pub fn find_magic_type(content_mime: &str) -> Option<&'static str> {

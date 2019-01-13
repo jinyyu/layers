@@ -34,21 +34,26 @@ extern "C" fn on_signal(sig: i32) {
 static mut APP_PTR: u64 = 0;
 
 struct Main {
+    _config: Box<config::Configure>,
     dispatcher: Arc<dispatcher::Dispatcher>,
     daq: Arc<daq::DAQ>,
 }
 
 impl Main {
-    fn new(conf: Arc<config::Configure>) -> Main {
+    fn new(config: Box<config::Configure>) -> Main {
         mime::MimeParser::init();
-        let daq = daq::init(conf.clone());
-        let dispatcher = dispatcher::init(conf.clone());
+        let daq = daq::init(&config.interface);
+        let dispatcher = dispatcher::init(config.worker_thread as u8);
 
-        Main { dispatcher, daq }
+        Main {
+            _config: config,
+            dispatcher,
+            daq,
+        }
     }
 
-    fn setup_workspace(conf: Arc<config::Configure>) {
-        let path = Path::new(&*conf.workspace);
+    fn setup_workspace(path: &str) {
+        let path = Path::new(path);
         let exists = Path::exists(path);
         if !exists {
             let result = fs::create_dir(path);
@@ -110,7 +115,7 @@ fn main() {
         .init();
 
     let conf = config::load(configure);
-    Main::setup_workspace(conf.clone());
+    Main::setup_workspace(&conf.workspace);
     let app = Main::new(conf);
 
     unsafe {

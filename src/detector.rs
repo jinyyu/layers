@@ -3,9 +3,7 @@ use libc::c_char;
 use std::cell::RefCell;
 use std::ffi::CStr;
 use std::rc::Rc;
-use std::sync::Arc;
 
-use crate::config::Configure;
 use crate::layer::tcp::dissector::{TCPDissector, TCPDissectorAllocator};
 
 #[repr(C)]
@@ -331,11 +329,11 @@ pub struct Detector {
 }
 
 impl Detector {
-    pub fn new(conf: Arc<Configure>, ip_proto: IPProto) -> Detector {
+    pub fn new(ip_proto: IPProto) -> Detector {
         let ctx = unsafe { init_ndpi_ctx() };
         Detector {
             ctx,
-            tcp_dissector_allocator: TCPDissectorAllocator::new(conf.clone()),
+            tcp_dissector_allocator: TCPDissectorAllocator::new(),
             ip_proto,
         }
     }

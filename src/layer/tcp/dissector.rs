@@ -36,15 +36,16 @@ pub struct TCPDissectorAllocator {
 }
 
 impl TCPDissectorAllocator {
-    pub fn new(conf: Arc<Configure>) -> TCPDissectorAllocator {
+    pub fn new() -> TCPDissectorAllocator {
         let mut allocator = TCPDissectorAllocator {
             protocol: HashMap::new(),
         };
 
+        let conf = Configure::singleton();
+
         if conf.is_dissector_enable("http") {
-            let conf = conf.clone();
             let cb = Arc::new(move |detector: Rc<Detector>, flow: *const c_char| {
-                HTTPDissector::new(detector, flow, conf.clone())
+                HTTPDissector::new(detector, flow)
             });
 
             allocator.protocol.insert(Proto::HTTP, cb.clone());

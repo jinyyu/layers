@@ -1,4 +1,3 @@
-use crate::config;
 use crate::packet::Packet;
 use libc::{c_char, c_int, c_uint};
 use std::ffi::CString;
@@ -87,8 +86,8 @@ impl Drop for DAQ {
     }
 }
 
-pub fn init(conf: Arc<config::Configure>) -> Arc<DAQ> {
-    let handle = open_device(&conf.interface);
+pub fn init(interface: &str) -> Arc<DAQ> {
+    let handle = open_device(interface);
     match handle {
         Some(h) => {
             let daq = DAQ { handle: h };

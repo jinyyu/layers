@@ -13,7 +13,6 @@ use std::mem;
 use std::ptr;
 use std::rc::Rc;
 use std::slice;
-use std::sync::Arc;
 
 const REQUEST_SETTING: ParserSettings = ParserSettings {
     on_message_begin: on_request_message_begin,
@@ -63,7 +62,7 @@ struct Parser {
 }
 
 type HTTPDataCallback =
-    extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
+extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
 
 type HTTPCallback = extern "C" fn(_parser: *const Parser) -> i32;
 
@@ -158,9 +157,9 @@ extern "C" fn on_request_headers_complete(parser: *const Parser) -> i32 {
         }
     }
 
-    this.parse_request = this
-        .config
-        .is_parse_http_content(&this.request_content_type);
+    let c =  Configure::singleton();
+
+    this.parse_request = c.is_parse_http_content(&this.request_content_type);
 
     if !this.parse_request {
         return 0;
@@ -232,8 +231,7 @@ extern "C" fn on_status(parser: *const Parser, data: *const c_char, length: isiz
             let s =
                 String::from_utf8_lossy(slice::from_raw_parts(data as *const u8, length as usize));
             trace!("http error : {} {}", (*parser).status_code, s);
-        } else {
-        }
+        } else {}
     }
     0
 }
@@ -280,9 +278,8 @@ extern "C" fn on_response_headers_complete(parser: *const Parser) -> i32 {
             trace!("no content-type");
         }
     }
-    this.parse_response = this
-        .config
-        .is_parse_http_content(&this.response_content_type);
+    let c =  Configure::singleton();
+    this.parse_response = c.is_parse_http_content(&this.response_content_type);
 
     if !this.parse_response {
         return 0;
@@ -340,7 +337,6 @@ extern "C" fn on_response_message_complete(parser: *const Parser) -> i32 {
 
 pub struct HTTPDissector {
     url: String,
-    config: Arc<Configure>,
     parse_request: bool,
     request_content_type: String,
     request_header: String,
@@ -359,13 +355,11 @@ impl HTTPDissector {
     pub fn new(
         detector: Rc<Detector>,
         flow: *const c_char,
-        config: Arc<Configure>,
     ) -> Rc<RefCell<TCPDissector>> {
         let url = detector.get_http_url(flow);
         trace!("url = {}", url);
         let http = Rc::new(RefCell::new(HTTPDissector {
             url,
-            config,
             parse_request: true,
             request_content_type: String::new(),
             request_header: String::new(),
@@ -412,7 +406,7 @@ impl HTTPDissector {
                 let result = mime::magic_buffer(data);
                 match result {
                     Some(type_str) => {
-                        debug!("buffer type = {}" , type_str);
+                        debug!("buffer type = {}", type_str);
                     }
                     None => {
                         debug!(" buffer not find {}", mime_type);
@@ -422,13 +416,12 @@ impl HTTPDissector {
                 let result = mime::find_magic_type(&mime_type);
                 match result {
                     Some(type_str) => {
-                        debug!("mime type = {}" , type_str);
+                        debug!("mime type = {}", type_str);
                     }
                     None => {
                         debug!("mime not find {}", mime_type);
                     }
                 }
-
             },
         );
         let result = parser.parse(cb);

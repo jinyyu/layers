@@ -1,4 +1,3 @@
-use crate::config;
 use crate::layer::tcp::TCPTracker;
 use crate::packet::Packet;
 use std::num::Wrapping;
@@ -33,23 +32,21 @@ impl Dispatcher {
     }
 }
 
-pub fn init(conf: Arc<config::Configure>) -> Arc<Dispatcher> {
+pub fn init(n_threads: u8) -> Arc<Dispatcher> {
     let mut dispatcher = Dispatcher {
         running: Arc::new(AtomicBool::new(true)),
-        barrier: Arc::new(Barrier::new((conf.worker_thread + 1) as usize)),
-        n_threads: conf.worker_thread as u8,
+        barrier: Arc::new(Barrier::new((n_threads + 1) as usize)),
+        n_threads,
         senders: Vec::new(),
     };
 
-    for _i in 0..conf.worker_thread {
+    for _i in 0..n_threads {
         let running = dispatcher.running.clone();
         let barrier = dispatcher.barrier.clone();
         let (tx, rx) = mpsc::channel::<Arc<Packet>>();
 
-        let config = conf.clone();
-
         let cb = move || {
-            let mut tcp_tracker = Box::new(TCPTracker::new(config));
+            let mut tcp_tracker = Box::new(TCPTracker::new());
 
             let timeout = Duration::new(1, 0);
 

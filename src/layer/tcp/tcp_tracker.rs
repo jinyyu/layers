@@ -1,4 +1,3 @@
-use crate::config;
 use crate::detector::Detector;
 use crate::layer::ip::StreamID;
 use crate::layer::tcp::TCPStream;
@@ -18,11 +17,11 @@ impl TCPTracker {
     //micro second
     const STREAM_CLEANUP_DURATION: u64 = 1000 * 1000 * 30;
 
-    pub fn new(conf: Arc<config::Configure>) -> TCPTracker {
+    pub fn new() -> TCPTracker {
         TCPTracker {
             last_cleanup: 0,
             streams: HashMap::new(),
-            detector: Rc::new(Detector::new(conf.clone(), IPProto::TCP)),
+            detector: Rc::new(Detector::new(IPProto::TCP)),
         }
     }
 
