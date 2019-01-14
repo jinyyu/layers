@@ -62,7 +62,7 @@ struct Parser {
 }
 
 type HTTPDataCallback =
-    extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
+extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
 
 type HTTPCallback = extern "C" fn(_parser: *const Parser) -> i32;
 
@@ -157,9 +157,7 @@ extern "C" fn on_request_headers_complete(parser: *const Parser) -> i32 {
         }
     }
 
-    let c = Configure::singleton();
-
-    this.parse_request = c.is_parse_http_content(&this.request_content_type);
+    this.parse_request = Configure::singleton().is_parse_http_content(&this.request_content_type);
 
     if !this.parse_request {
         return 0;
@@ -231,8 +229,7 @@ extern "C" fn on_status(parser: *const Parser, data: *const c_char, length: isiz
             let s =
                 String::from_utf8_lossy(slice::from_raw_parts(data as *const u8, length as usize));
             trace!("http error : {} {}", (*parser).status_code, s);
-        } else {
-        }
+        } else {}
     }
     0
 }
@@ -279,8 +276,8 @@ extern "C" fn on_response_headers_complete(parser: *const Parser) -> i32 {
             trace!("no content-type");
         }
     }
-    let c = Configure::singleton();
-    this.parse_response = c.is_parse_http_content(&this.response_content_type);
+
+    this.parse_response = Configure::singleton().is_parse_http_content(&this.response_content_type);
 
     if !this.parse_response {
         return 0;
@@ -355,7 +352,7 @@ pub struct HTTPDissector {
 impl HTTPDissector {
     pub fn new(detector: Rc<Detector>, flow: *const c_char) -> Rc<RefCell<TCPDissector>> {
         let url = detector.get_http_url(flow);
-        trace!("url = {}", url);
+        trace!("url : {}", url);
         let http = Rc::new(RefCell::new(HTTPDissector {
             url,
             parse_request: true,
@@ -401,24 +398,25 @@ impl HTTPDissector {
                     return;
                 }
 
-                let result = mime::magic_buffer(data);
-                match result {
-                    Some(type_str) => {
-                        debug!("buffer type = {}", type_str);
-                    }
-                    None => {
-                        debug!(" buffer not find {}", mime_type);
-                    }
+                if let Some(type_str) = mime::find_magic_type(&mime_type) {
+                    debug!(
+                        "detect file type success filename {}, type {}, size {}",
+                        filename,
+                        type_str,
+                        data.len()
+                    );
+                    return;
                 }
-
-                let result = mime::find_magic_type(&mime_type);
-                match result {
-                    Some(type_str) => {
-                        debug!("mime type = {}", type_str);
-                    }
-                    None => {
-                        debug!("mime not find {}", mime_type);
-                    }
+                if let Some(type_str) = mime::magic_buffer(data) {
+                    debug!(
+                        "detect file type from buffer success filename {}, type {}, size {}",
+                        filename,
+                        type_str,
+                        data.len()
+                    );
+                    return;
+                } else {
+                    debug!("detect file type error {}", mime_type);
                 }
             },
         );
@@ -465,7 +463,7 @@ impl TCPDissector for HTTPDissector {
                     CStr::from_ptr(http_errno_description_from_parser(self.response_parser));
                 let s = c_str.to_string_lossy();
 
-                trace!("http parse error {}", s);
+                debug!("http parse error {}", s);
                 Err(())
             } else {
                 Ok(())
@@ -489,7 +487,7 @@ impl TCPDissector for HTTPDissector {
                 ));
                 let s = c_str.to_string_lossy();
 
-                trace!("http parse error {}", s);
+                debug!("http parse error {}", s);
                 Err(())
             } else {
                 Ok(())

@@ -16,7 +16,7 @@ skip_http_content_key:
   - js
   - text
   - javascript
-#  - png
-#  - jpg
-#  - jpeg
-#  - image
+  - png
+  - jpg
+  - jpeg
+  - image

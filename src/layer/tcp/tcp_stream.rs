@@ -261,6 +261,7 @@ impl TCPStream {
             assert_eq!(packet.src_port, self.server_port);
             flow = &mut self.server_flow;
         }
+
         match *flow {
             None => {
                 let mut f;
@@ -269,24 +270,16 @@ impl TCPStream {
                 if is_client {
                     let skip = self.skip.clone();
                     let cb = move |data: &[u8]| {
-                        let result = dissector.borrow_mut().on_client_data(data);
-                        match result {
-                            Err(_) => {
-                                skip.set(true);
-                            }
-                            Ok(_) => {}
+                        if let Err(_) = dissector.borrow_mut().on_client_data(data) {
+                            skip.set(true);
                         }
                     };
                     f = TcpFlow::new(packet, Box::new(cb));
                 } else {
                     let skip = self.skip.clone();
                     let cb = move |data: &[u8]| {
-                        let result = dissector.borrow_mut().on_server_data(data);
-                        match result {
-                            Err(_) => {
-                                skip.set(true);
-                            }
-                            Ok(_) => {}
+                        if let Err(_) = dissector.borrow_mut().on_server_data(data) {
+                            skip.set(true);
                         }
                     };
                     f = TcpFlow::new(packet, Box::new(cb));
