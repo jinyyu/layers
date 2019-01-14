@@ -13,6 +13,7 @@ use std::mem;
 use std::ptr;
 use std::rc::Rc;
 use std::slice;
+use files;
 
 const REQUEST_SETTING: ParserSettings = ParserSettings {
     on_message_begin: on_request_message_begin,
@@ -62,7 +63,7 @@ struct Parser {
 }
 
 type HTTPDataCallback =
-extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
+    extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
 
 type HTTPCallback = extern "C" fn(_parser: *const Parser) -> i32;
 
@@ -229,7 +230,8 @@ extern "C" fn on_status(parser: *const Parser, data: *const c_char, length: isiz
             let s =
                 String::from_utf8_lossy(slice::from_raw_parts(data as *const u8, length as usize));
             trace!("http error : {} {}", (*parser).status_code, s);
-        } else {}
+        } else {
+        }
     }
     0
 }
@@ -399,20 +401,24 @@ impl HTTPDissector {
                 }
 
                 if let Some(type_str) = mime::find_magic_type(&mime_type) {
+                    let md5 = files::compute_md5(data);
                     debug!(
-                        "detect file type success filename {}, type {}, size {}",
+                        "detect file type success filename {}, type {}, size {}, md5 {}",
                         filename,
                         type_str,
-                        data.len()
+                        data.len(),
+                        md5,
                     );
                     return;
                 }
                 if let Some(type_str) = mime::magic_buffer(data) {
+                    let md5 = files::compute_md5(data);
                     debug!(
-                        "detect file type from buffer success filename {}, type {}, size {}",
+                        "detect file type from buffer success filename {}, type {}, size {}, md5 {}",
                         filename,
                         type_str,
-                        data.len()
+                        data.len(),
+                        md5
                     );
                     return;
                 } else {

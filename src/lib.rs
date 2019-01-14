@@ -9,11 +9,13 @@ extern crate magic;
 extern crate yaml_rust;
 #[macro_use]
 extern crate lazy_static;
+extern crate glib_sys;
 
 pub mod config;
 pub mod daq;
 pub mod detector;
 pub mod dispatcher;
+pub mod files;
 pub mod inet;
 pub mod layer;
 pub mod mime;
