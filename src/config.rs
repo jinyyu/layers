@@ -2,6 +2,8 @@ use aho_corasick::{AcAutomaton, Automaton};
 use std::collections::HashMap;
 use std::fs::File;
 use std::io::prelude::*;
+use std::ptr;
+use std::sync::atomic::{AtomicPtr, Ordering};
 use yaml_rust::yaml;
 
 unsafe impl Send for Configure {}
@@ -16,7 +18,9 @@ pub struct Configure {
     http_content_ac_automaton: Box<AcAutomaton<String>>,
 }
 
-static mut CONFIG_PTR: u64 = 0;
+lazy_static! {
+    static ref CONFIG_PTR: AtomicPtr<Configure> = AtomicPtr::new(ptr::null_mut());
+}
 
 impl Configure {
     pub fn is_dissector_enable(&self, name: &str) -> bool {
@@ -44,8 +48,9 @@ impl Configure {
     }
 
     pub fn singleton() -> &'static Configure {
+        let raw = CONFIG_PTR.load(Ordering::SeqCst);
         unsafe {
-            return &*(CONFIG_PTR as *const Configure);
+            return &*raw;
         }
     }
 }
@@ -75,11 +80,11 @@ pub fn load(path: String) -> Box<Configure> {
         .as_vec()
         .expect("invalid skip_http_content_key config")
         .iter()
-        {
-            let key = key.as_str().expect("invalid config");
-            info!("skip http content key {}", key);
-            skip_http_content_keys.push(key.to_string());
-        }
+    {
+        let key = key.as_str().expect("invalid config");
+        info!("skip http content key {}", key);
+        skip_http_content_keys.push(key.to_string());
+    }
 
     let http_content_ac_automaton = Box::new(AcAutomaton::new(skip_http_content_keys));
 
@@ -88,12 +93,11 @@ pub fn load(path: String) -> Box<Configure> {
         .as_vec()
         .expect("invalid dissector config")
         .iter()
-        {
-            let dissector = dissector.as_str().expect("invalid config");
-            info!("dissector {}", dissector);
-            dissectors.insert(dissector.to_string(), ());
-        }
-
+    {
+        let dissector = dissector.as_str().expect("invalid config");
+        info!("dissector {}", dissector);
+        dissectors.insert(dissector.to_string(), ());
+    }
 
     let conf = Box::new(Configure {
         interface: interface.to_string(),
@@ -103,10 +107,7 @@ pub fn load(path: String) -> Box<Configure> {
         http_content_ac_automaton,
     });
 
-    let raw = conf.as_ref() as *const Configure as u64;
-
-    unsafe {
-        CONFIG_PTR = raw;
-    }
+    let raw = conf.as_ref() as *const Configure as *mut Configure;
+    CONFIG_PTR.store(raw, Ordering::SeqCst);
     return conf;
 }

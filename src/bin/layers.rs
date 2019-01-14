@@ -2,15 +2,17 @@ use env_logger::Builder;
 use std::env;
 use std::fs;
 use std::io::Write;
-use std::mem;
 use std::path::Path;
+use std::ptr;
+use std::sync::atomic::{AtomicPtr, Ordering};
 use std::sync::Arc;
-
 #[macro_use]
 extern crate log;
 extern crate argparse;
 extern crate env_logger;
 extern crate layers;
+#[macro_use]
+extern crate lazy_static;
 
 use layers::*;
 
@@ -20,18 +22,19 @@ extern "C" {
     fn signal(_sig: i32, _handler: SignalCallback) -> SignalCallback;
 }
 
+lazy_static! {
+    static ref APP_PTR: AtomicPtr<Main> = AtomicPtr::new(ptr::null_mut());
+}
+
 extern "C" fn on_signal(sig: i32) {
     debug!("on signal {}", sig);
-
+    let app = APP_PTR.load(Ordering::SeqCst);
     unsafe {
-        if APP_PTR != 0 {
-            let app = mem::transmute::<u64, *mut Main>(APP_PTR);
+        if app != ptr::null_mut() {
             (*app).stop();
         }
     }
 }
-
-static mut APP_PTR: u64 = 0;
 
 struct Main {
     _config: Box<config::Configure>,
@@ -118,10 +121,8 @@ fn main() {
     Main::setup_workspace(&conf.workspace);
     let app = Main::new(conf);
 
-    unsafe {
-        let ptr = mem::transmute::<*const Main, u64>(&app);
-        APP_PTR = ptr;
-    }
+    let ptr = &app as *const Main as *mut Main;
+    APP_PTR.store(ptr, Ordering::SeqCst);
 
     unsafe {
         signal(1, on_signal);

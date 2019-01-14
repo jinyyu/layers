@@ -62,7 +62,7 @@ struct Parser {
 }
 
 type HTTPDataCallback =
-extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
+    extern "C" fn(_parser: *const Parser, _data: *const c_char, _length: isize) -> i32;
 
 type HTTPCallback = extern "C" fn(_parser: *const Parser) -> i32;
 
@@ -157,7 +157,7 @@ extern "C" fn on_request_headers_complete(parser: *const Parser) -> i32 {
         }
     }
 
-    let c =  Configure::singleton();
+    let c = Configure::singleton();
 
     this.parse_request = c.is_parse_http_content(&this.request_content_type);
 
@@ -231,7 +231,8 @@ extern "C" fn on_status(parser: *const Parser, data: *const c_char, length: isiz
             let s =
                 String::from_utf8_lossy(slice::from_raw_parts(data as *const u8, length as usize));
             trace!("http error : {} {}", (*parser).status_code, s);
-        } else {}
+        } else {
+        }
     }
     0
 }
@@ -278,7 +279,7 @@ extern "C" fn on_response_headers_complete(parser: *const Parser) -> i32 {
             trace!("no content-type");
         }
     }
-    let c =  Configure::singleton();
+    let c = Configure::singleton();
     this.parse_response = c.is_parse_http_content(&this.response_content_type);
 
     if !this.parse_response {
@@ -352,10 +353,7 @@ pub struct HTTPDissector {
 }
 
 impl HTTPDissector {
-    pub fn new(
-        detector: Rc<Detector>,
-        flow: *const c_char,
-    ) -> Rc<RefCell<TCPDissector>> {
+    pub fn new(detector: Rc<Detector>, flow: *const c_char) -> Rc<RefCell<TCPDissector>> {
         let url = detector.get_http_url(flow);
         trace!("url = {}", url);
         let http = Rc::new(RefCell::new(HTTPDissector {
