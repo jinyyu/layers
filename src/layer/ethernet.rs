@@ -14,7 +14,7 @@ impl EthernetType {
     pub const PPPOE_SESS: EthernetType = EthernetType(0x8864); /* session stage */
     pub const T8021AD: EthernetType = EthernetType(0x88a8);
     pub const T8021AH: EthernetType = EthernetType(0x88e7);
-    pub const T8021Q: EthernetType = EthernetType(0x8100);
+    pub const VLAN: EthernetType = EthernetType(0x8100);
     pub const LOOP: EthernetType = EthernetType(0x9000);
     pub const T8021QINQ: EthernetType = EthernetType(0x9100);
     pub const ERSPAN: EthernetType = EthernetType(0x88BE);
@@ -34,7 +34,7 @@ impl EthernetType {
             EthernetType::PPPOE_SESS => "SESS",
             EthernetType::T8021AD => "8021AD",
             EthernetType::T8021AH => "8021AH",
-            EthernetType::T8021Q => "8021Q",
+            EthernetType::VLAN => "VLAN",
             EthernetType::LOOP => "LOOP",
             EthernetType::T8021QINQ => "8021QINQ",
             EthernetType::ERSPAN => "ERSPAN",
@@ -44,7 +44,7 @@ impl EthernetType {
     }
 }
 
-#[repr(C)]
+#[repr(C,packed)]
 pub struct EthernetHeader {
     pub eth_dst: [u8; 6],
     pub eth_src: [u8; 6],

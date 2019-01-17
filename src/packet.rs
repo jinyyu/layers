@@ -1,6 +1,6 @@
 use crate::inet;
 use crate::layer::IPProto;
-use crate::layer::{EthernetHeader, EthernetType, IPV4Header, TCPHeader};
+use crate::layer::{EthernetHeader, EthernetType, IPV4Header, TCPHeader, VlanHeader};
 use std::mem;
 use std::ptr;
 use std::slice;
@@ -118,6 +118,41 @@ impl Packet {
         left -= mem::size_of::<EthernetHeader>();
 
         let eth_type = unsafe { EthernetType(inet::ntohs((*self.ethernet).eth_type)) };
+
+        match eth_type {
+            EthernetType::IP => {
+                self.flag |= Packet::IPV4;
+                self.decode_ipv4(offset, left);
+            }
+            EthernetType::VLAN => {
+                self.decode_vlan(offset, left)
+            }
+            EthernetType::T8021QINQ => {
+                self.decode_vlan(offset, left)
+            }
+            _ => {
+                trace!(
+                    "ethernet type {}",
+                    EthernetType::ethernet_type_string(eth_type)
+                );
+            }
+        }
+    }
+
+    fn decode_vlan(&mut self, offset: usize, left: usize) {
+        if left < mem::size_of::<VlanHeader>() {
+            self.flag |= Packet::BAD_PACKET;
+            return;
+        }
+        let eth_type;
+        unsafe {
+            let vlan = self.data.as_ptr().offset(offset as isize) as *const VlanHeader;
+            let vlan = &*vlan;
+            eth_type = EthernetType(inet::ntohs(vlan.eth_type));
+        }
+
+        let offset = offset + mem::size_of::<VlanHeader>();
+        let left = left - mem::size_of::<VlanHeader>();
 
         match eth_type {
             EthernetType::IP => {

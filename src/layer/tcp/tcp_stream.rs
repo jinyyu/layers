@@ -10,7 +10,7 @@ use std::ptr;
 use std::rc::Rc;
 use std::sync::Arc;
 
-#[repr(C)]
+#[repr(C,packed)]
 pub struct TCPHeader {
     //source port
     pub sport: u16,

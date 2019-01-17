@@ -61,7 +61,7 @@ impl IPProto {
     }
 }
 
-#[repr(C)]
+#[repr(C,packed)]
 pub struct IPV4Header {
     //version & header length
     pub version_length: u8,
