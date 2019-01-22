@@ -58,7 +58,7 @@ pub fn init(n_threads: u8) -> Arc<Dispatcher> {
                 }
                 match rx.recv_timeout(timeout) {
                     Ok(packet) => {
-                        if packet.flag & Packet::TCP > 0 {
+                        if packet.state & Packet::STATE_TCP > 0 {
                             trace!(
                                 "{}:{} ->{}:{}",
                                 packet.src_ip_str(),

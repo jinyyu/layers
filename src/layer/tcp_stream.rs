@@ -1,27 +1,18 @@
 use detector;
 use inet;
 use layer::packet::Packet;
+use layer::stream_state;
 use layer::tcp::TCPHeader;
 use layer::{dissector, TcpFlow};
 use libc::c_char;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::ptr;
 use std::rc::Rc;
 use std::sync::Arc;
 
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum State {
-    DetectTrying,
-    DetectSuccess,
-    DetectError,
-}
-
 pub struct TCPStream {
-    skip: Rc<Cell<bool>>,
-    finished: bool,
-    state: State,
-
+    state: u32,
     last_timestamp: u64,
 
     //host order
@@ -51,11 +42,13 @@ pub struct TCPStream {
 impl TCPStream {
     const MAX_DETECT_TIMES: u8 = 10;
 
-    pub fn new(packet: Arc<Packet>, detector: Rc<detector::Detector>) -> TCPStream {
-        let mut stream = TCPStream {
-            skip: Rc::new(Cell::new(false)),
-            finished: false,
-            state: State::DetectTrying,
+    pub fn new(packet: Arc<Packet>, detector: Rc<detector::Detector>) -> Option<Box<TCPStream>> {
+        if unsafe { (*packet.tcp).flags & TCPHeader::SYN == 0 } {
+            return None;
+        }
+
+        let stream = Box::new(TCPStream {
+            state: stream_state::STATE_PROTOCOL_DETECTING,
 
             last_timestamp: packet.timestamp,
 
@@ -77,13 +70,10 @@ impl TCPStream {
             client_flow: None,
             server_flow: None,
             dissector: dissector::TCPDissectorAllocator::default(),
-        };
+        });
 
-        if unsafe { (*packet.tcp).flags & TCPHeader::SYN > 0 } {
-            trace!("syn stream");
-            stream.state = State::DetectTrying;
-        }
-        return stream;
+        trace!("{}", stream_state::state_to_string(stream.state));
+        return Some(stream);
     }
 
     pub fn last_seen(&self) -> u64 {
@@ -93,37 +83,44 @@ impl TCPStream {
     pub fn handle_packet(&mut self, packet: &Arc<Packet>) {
         self.last_timestamp = packet.timestamp;
 
-        match self.state {
-            State::DetectError => {
-                trace!("unknown protocol");
-            }
-            State::DetectTrying => {
-                self.pending_packets.push_back(packet.clone());
-                if self.flow == ptr::null() {
-                    unsafe {
-                        self.flow = detector::new_ndpi_flow();
-                        self.client_id = detector::new_ndpi_flow_id();
-                        self.server_id = detector::new_ndpi_flow_id();
-                    }
+        if self.state
+            & (stream_state::STATE_STREAM_SKIP
+                | stream_state::STATE_STREAM_FINISHED
+                | stream_state::STATE_PROTOCOL_FAILED)
+            > 0
+        {
+            trace!("skip");
+            return;
+        }
+
+        if self.state & stream_state::STATE_PROTOCOL_DETECTING > 0 {
+            self.pending_packets.push_back(packet.clone());
+            if self.flow == ptr::null() {
+                unsafe {
+                    self.flow = detector::new_ndpi_flow();
+                    self.client_id = detector::new_ndpi_flow_id();
+                    self.server_id = detector::new_ndpi_flow_id();
                 }
-                self.detect_protocol(packet);
             }
-            State::DetectSuccess => {
-                self.dispatch_packet(packet);
-            }
+            self.detect_protocol(packet);
+        } else if self.state & stream_state::STATE_PROTOCOL_SUCCESS > 0 {
+            self.dispatch_packet(packet);
         }
 
         unsafe {
             if (*packet.tcp).flags & (TCPHeader::FIN | TCPHeader::RST) > 0 {
-                trace!("finished");
-                self.finished = true
+                self.state |= stream_state::STATE_STREAM_FINISHED;
+                trace!(
+                    "stream finished:{}",
+                    stream_state::state_to_string(self.state)
+                );
             }
         }
     }
 
     #[inline]
     pub fn is_finished(&self) -> bool {
-        self.finished
+        self.state & stream_state::STATE_STREAM_FINISHED > 0
     }
 
     #[inline]
@@ -162,8 +159,13 @@ impl TCPStream {
         }
     }
 
+    fn set_skip(&mut self) {
+        self.state |= stream_state::STATE_STREAM_SKIP;
+        trace!("skip {}", stream_state::state_to_string(self.state));
+    }
+
     fn detect_give_up(&mut self) {
-        if self.state != State::DetectTrying {
+        if self.state & stream_state::STATE_PROTOCOL_FINISHED > 0 {
             return;
         }
         self.proto = self.detector.detect_give_up(self.flow, 1);
@@ -187,10 +189,12 @@ impl TCPStream {
     }
 
     fn on_detect_success(&mut self) {
-        self.state = State::DetectSuccess;
+        self.state &= !stream_state::STATE_PROTOCOL_ALL;
+        self.state |= stream_state::STATE_PROTOCOL_SUCCESS;
         trace!(
-            "detect success proto name = {}",
-            self.detector.protocol_name(&self.proto)
+            "detect success {},{}",
+            self.detector.protocol_name(&self.proto),
+            stream_state::state_to_string(self.state)
         );
         self.dissector =
             self.detector
@@ -210,6 +214,7 @@ impl TCPStream {
 
     fn dispatch_packet(&mut self, packet: &Arc<Packet>) {
         let flow;
+        let this = self as *const TCPStream;
         let is_client = self.is_client_flow(packet);
         if is_client {
             flow = &mut self.client_flow;
@@ -225,18 +230,22 @@ impl TCPStream {
                 let dissector = self.dissector.clone();
 
                 if is_client {
-                    let skip = self.skip.clone();
                     let cb = move |data: &[u8]| {
                         if let Err(_) = dissector.borrow_mut().on_client_data(data) {
-                            skip.set(true);
+                            unsafe {
+                                let this = this as *mut TCPStream;
+                                &(*this).set_skip();
+                            }
                         }
                     };
                     f = TcpFlow::new(packet, Box::new(cb));
                 } else {
-                    let skip = self.skip.clone();
                     let cb = move |data: &[u8]| {
                         if let Err(_) = dissector.borrow_mut().on_server_data(data) {
-                            skip.set(true);
+                            unsafe {
+                                let this = this as *mut TCPStream;
+                                &(*this).set_skip();
+                            }
                         }
                     };
                     f = TcpFlow::new(packet, Box::new(cb));
@@ -246,17 +255,18 @@ impl TCPStream {
                 *flow = Some(f);
             }
             Some(ref mut flow) => {
-                if self.skip.get() {
-                    trace!("skip data");
-                } else {
-                    flow.process_packet(packet);
-                }
+                flow.process_packet(packet);
             }
         }
     }
 
     fn on_detect_failed(&mut self) {
-        self.state = State::DetectError;
+        self.state &= !stream_state::STATE_PROTOCOL_ALL;
+        self.state |= stream_state::STATE_PROTOCOL_FAILED;
+        trace!(
+            "detect failed {}",
+            stream_state::state_to_string(self.state)
+        );
         self.pending_packets.clear();
     }
 }

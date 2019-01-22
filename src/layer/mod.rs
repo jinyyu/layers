@@ -2,6 +2,7 @@ pub mod dispatcher;
 pub mod ethernet;
 pub mod ip;
 pub mod packet;
+pub mod stream_state;
 pub mod tcp;
 pub mod tcp_flow;
 pub mod tcp_stream;

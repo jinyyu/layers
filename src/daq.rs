@@ -28,7 +28,7 @@ extern "C" fn loop_callback(ctx: *mut c_char, packet: *const PacketHeader, bytes
         let tm = (*packet).ts.sec * 1000 * 1000 + (*packet).ts.usec;
         let p = Packet::new(tm, bytes as *const u8, (*packet).len as usize);
         if !p.valid() {
-            debug!("invalid packet 0b{:b}", p.flag);
+            debug!("invalid packet 0b{:b}", p.state);
         } else {
             let callback = ctx as *const &Fn(Arc<Packet>);
             (*callback)(p);

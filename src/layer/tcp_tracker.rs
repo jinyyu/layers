@@ -8,7 +8,7 @@ use std::rc::Rc;
 use std::sync::Arc;
 
 pub struct TCPTracker {
-    streams: HashMap<StreamID, TCPStream>,
+    streams: HashMap<StreamID, Box<TCPStream>>,
     detector: Rc<Detector>,
     last_cleanup: u64,
 }
@@ -33,28 +33,39 @@ impl TCPTracker {
             packet.dst_port,
         );
 
-        let remove;
-
+        let mut finished = false;
+        let mut find = false;
         let tm = packet.timestamp;
-        {
-            let pkt = packet.clone();
-            let detector = self.detector.clone();
-            let stream = self.streams.entry(id).or_insert_with(|| {
-                trace!(
-                    "new tcp stream {}:{} ->{}:{}",
-                    pkt.src_ip_str(),
-                    pkt.src_port,
-                    pkt.dst_ip_str(),
-                    pkt.dst_port
-                );
-                let stream = TCPStream::new(pkt, detector);
-                return stream;
-            });
 
-            stream.handle_packet(packet);
-            remove = stream.is_finished();
+        {
+            let mut result = self.streams.get_mut(&id);
+
+            match result {
+                Some(ref mut stream) => {
+                    find = true;
+                    stream.handle_packet(packet);
+                    finished = stream.is_finished();
+                }
+                None => {}
+            }
         }
-        if remove {
+
+        if !find {
+            let stream = TCPStream::new(packet.clone(), self.detector.clone());
+            match stream {
+                Some(mut stream) => {
+                    stream.handle_packet(packet);
+                    finished = stream.is_finished();
+
+                    if !finished {
+                        self.streams.insert(id, stream);
+                    }
+                }
+                None => trace!("not sync stream, ignore"),
+            }
+        }
+
+        if finished {
             self.streams.remove(&id);
         } else {
             self.cleanup_stream(tm);
@@ -68,8 +79,9 @@ impl TCPTracker {
 
         let before = self.streams.len();
 
-        self.streams
-            .retain(|_k, v| -> bool { v.last_seen() + TCPTracker::STREAM_CLEANUP_DURATION > tm });
+        self.streams.retain(|_k, stream| -> bool {
+            stream.last_seen() + TCPTracker::STREAM_CLEANUP_DURATION > tm
+        });
 
         let after = self.streams.len();
         debug!("tcp stream cleanup {}/{}", before - after, before);

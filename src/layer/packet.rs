@@ -7,7 +7,7 @@ use std::slice;
 use std::sync::Arc;
 
 pub struct Packet {
-    pub flag: u8,
+    pub state: u32,
     pub timestamp: u64,
     pub data: Vec<u8>,
 
@@ -34,23 +34,18 @@ unsafe impl Send for Packet {}
 unsafe impl Sync for Packet {}
 
 impl Packet {
-    pub const BAD_PACKET: u8 = (0x01 << 0);
-    pub const IPV4: u8 = (0x01 << 1);
-    pub const IPV6: u8 = (0x01 << 2);
-    pub const ARP: u8 = (0x01 << 3);
-    pub const ICMP: u8 = (0x01 << 4);
-    pub const TCP: u8 = (0x01 << 5);
-    pub const UDP: u8 = (0x01 << 6);
-    /* now combined detections */
-
-    pub const TCP_OR_UDP: u8 = Packet::IPV4 | Packet::UDP;
-    pub const IPV4TCP: u8 = Packet::IPV4 | Packet::TCP;
-    pub const IPV6TCP: u8 = Packet::IPV6 | Packet::TCP;
-    pub const IPV4UDP: u8 = Packet::IPV4 | Packet::UDP;
-    pub const IPV6UDP: u8 = Packet::IPV6 | Packet::UDP;
+    pub const STATE_NONE: u32 = 0;
+    pub const BAD_PACKET: u32 = 1 << 0;
+    pub const STATE_IPV4: u32 = 1 << 1;
+    pub const STATE_IPV6: u32 = 1 << 2;
+    pub const STATE_ARP: u32 = 1 << 3;
+    pub const STATE_ICMP: u32 = 1 << 4;
+    pub const STATE_TCP: u32 = 1 << 5;
+    pub const STATE_UDP: u32 = 1 << 6;
+    pub const STATE_PAYLOAD: u32 = 1 << 7;
 
     pub fn valid(&self) -> bool {
-        return self.flag & Packet::BAD_PACKET == 0;
+        return self.state & Packet::BAD_PACKET == 0;
     }
 
     #[inline]
@@ -75,8 +70,8 @@ impl Packet {
         return inet::ip_to_string(self.dst_ip);
     }
 
-    pub fn tcp_payload(&self) -> &[u8] {
-        assert!(self.flag & Packet::TCP_OR_UDP > 0);
+    pub fn payload_slice(&self) -> &[u8] {
+        assert!(self.state & Packet::STATE_PAYLOAD > 0);
         unsafe { slice::from_raw_parts(self.payload, self.payload_len) }
     }
 
@@ -84,7 +79,7 @@ impl Packet {
         let array = unsafe { slice::from_raw_parts(data, size) };
 
         let mut packet = Packet {
-            flag: 0,
+            state: 0,
             data: Vec::from(array),
             timestamp,
             ethernet: ptr::null(),
@@ -102,7 +97,7 @@ impl Packet {
         };
         if size < mem::size_of::<EthernetHeader>() {
             debug!("invalid packet, size = {}", size);
-            packet.flag |= Packet::BAD_PACKET;
+            packet.state |= Packet::BAD_PACKET;
         } else {
             packet.decode_ethernet();
         }
@@ -121,7 +116,7 @@ impl Packet {
 
         match eth_type {
             EthernetType::IP => {
-                self.flag |= Packet::IPV4;
+                self.state |= Packet::STATE_IPV4;
                 self.decode_ipv4(offset, left);
             }
             EthernetType::VLAN => self.decode_vlan(offset, left),
@@ -137,7 +132,7 @@ impl Packet {
 
     fn decode_vlan(&mut self, offset: usize, left: usize) {
         if left < mem::size_of::<VlanHeader>() {
-            self.flag |= Packet::BAD_PACKET;
+            self.state |= Packet::BAD_PACKET;
             return;
         }
         let eth_type;
@@ -152,7 +147,7 @@ impl Packet {
 
         match eth_type {
             EthernetType::IP => {
-                self.flag |= Packet::IPV4;
+                self.state |= Packet::STATE_IPV4;
                 self.decode_ipv4(offset, left);
             }
             _ => {
@@ -165,10 +160,10 @@ impl Packet {
     }
 
     fn decode_ipv4(&mut self, offset: usize, left: usize) {
-        assert!(self.flag & Packet::IPV4 > 0);
+        assert!(self.state & Packet::STATE_IPV4 > 0);
 
         if left < mem::size_of::<IPV4Header>() {
-            self.flag |= Packet::BAD_PACKET;
+            self.state |= Packet::BAD_PACKET;
             return;
         }
 
@@ -181,7 +176,7 @@ impl Packet {
 
         if ip.version() != 4 {
             debug!("bad version {}", ip.version());
-            self.flag |= Packet::BAD_PACKET;
+            self.state |= Packet::BAD_PACKET;
             return;
         }
         let header_len = ip.header_len() as usize;
@@ -190,7 +185,7 @@ impl Packet {
 
         if left < self.ip_layer_len || self.ip_layer_len < header_len {
             debug!("bad packet {}, {}, {}", left, self.ip_layer_len, header_len);
-            self.flag |= Packet::BAD_PACKET;
+            self.state |= Packet::BAD_PACKET;
             return;
         }
 
@@ -198,7 +193,7 @@ impl Packet {
 
         match proto {
             IPProto::TCP => {
-                self.flag |= Packet::TCP;
+                self.state |= Packet::STATE_TCP;
                 self.decode_tcp(offset + header_len, ip_layer_len - header_len);
             }
 
@@ -209,7 +204,7 @@ impl Packet {
     }
 
     fn decode_tcp(&mut self, offset: usize, left: usize) {
-        assert!(self.flag & Packet::TCP > 0);
+        assert!(self.state & Packet::STATE_TCP > 0);
         let tcp = unsafe { &mut *(self.data.as_ptr().offset(offset as isize) as *mut TCPHeader) };
 
         self.tcp = tcp;
@@ -219,12 +214,15 @@ impl Packet {
         let header_len = unsafe { (*self.tcp).header_len() as usize };
         if left < header_len {
             debug!("bad tcp packet {} {}", left, header_len);
-            self.flag |= Packet::BAD_PACKET;
+            self.state |= Packet::BAD_PACKET;
             return;
         }
 
         self.payload_len = left - header_len;
-        let offset = offset + header_len;
-        self.payload = unsafe { self.data.as_ptr().offset(offset as isize) as *const u8 };
+        if self.payload_len > 0 {
+            self.state |= Packet::STATE_PAYLOAD;
+            let offset = offset + header_len;
+            self.payload = unsafe { self.data.as_ptr().offset(offset as isize) as *const u8 };
+        }
     }
 }

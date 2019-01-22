@@ -63,17 +63,16 @@ impl TcpFlow {
             }
         }
 
-        let payload = packet.tcp_payload();
-        if payload.len() == 0 {
-            return;
-        }
-        unsafe {
-            tcp_data_tracker_process_data(
-                self.tracker_,
-                inet::ntohl((*packet.tcp).seq),
-                payload.as_ptr() as *const c_char,
-                payload.len() as u32,
-            );
+        if packet.state & Packet::STATE_PAYLOAD > 0 {
+            let payload = packet.payload_slice();
+            unsafe {
+                tcp_data_tracker_process_data(
+                    self.tracker_,
+                    inet::ntohl((*packet.tcp).seq),
+                    payload.as_ptr() as *const c_char,
+                    payload.len() as u32,
+                );
+            }
         }
     }
 }
