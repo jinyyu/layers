@@ -1,4 +1,4 @@
-use crate::packet::Packet;
+use layer::packet::Packet;
 use libc::{c_char, c_int, c_uint};
 use std::ffi::CString;
 use std::sync::Arc;

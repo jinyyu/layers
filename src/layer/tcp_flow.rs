@@ -1,5 +1,5 @@
 use crate::inet;
-use crate::packet::Packet;
+use layer::packet::Packet;
 use layer::tcp::TCPHeader;
 use libc::c_char;
 use std::mem;

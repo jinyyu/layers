@@ -1,6 +1,6 @@
-use crate::packet::Packet;
 use detector;
 use inet;
+use layer::packet::Packet;
 use layer::tcp::TCPHeader;
 use layer::{dissector, TcpFlow};
 use libc::c_char;

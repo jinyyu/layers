@@ -18,5 +18,3 @@ pub mod files;
 pub mod inet;
 pub mod layer;
 pub mod mime;
-pub mod packet;
-pub mod proto_dispatcher;

@@ -1,5 +1,5 @@
 use crate::layer::TCPTracker;
-use crate::packet::Packet;
+use layer::packet::Packet;
 use std::num::Wrapping;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{mpsc, Arc, Barrier};
