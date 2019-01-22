@@ -1,6 +1,7 @@
 use crate::detector::Detector;
 use crate::layer::TCPDissector;
 use config::Configure;
+use files;
 use gmime_sys;
 use gobject_2_0_sys;
 use libc::{c_char, c_void, free, malloc, strlen};
@@ -13,7 +14,6 @@ use std::mem;
 use std::ptr;
 use std::rc::Rc;
 use std::slice;
-use files;
 
 const REQUEST_SETTING: ParserSettings = ParserSettings {
     on_message_begin: on_request_message_begin,

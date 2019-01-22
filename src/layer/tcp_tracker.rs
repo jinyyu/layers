@@ -1,6 +1,6 @@
 use crate::detector::Detector;
 use crate::layer::ip::StreamID;
-use crate::layer::tcp::TCPStream;
+use crate::layer::TCPStream;
 use crate::packet::Packet;
 use layer::IPProto;
 use std::collections::HashMap;

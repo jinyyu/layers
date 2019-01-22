@@ -44,7 +44,7 @@ impl EthernetType {
     }
 }
 
-#[repr(C,packed)]
+#[repr(C, packed)]
 pub struct EthernetHeader {
     pub eth_dst: [u8; 6],
     pub eth_src: [u8; 6],

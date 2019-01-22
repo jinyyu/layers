@@ -124,12 +124,8 @@ impl Packet {
                 self.flag |= Packet::IPV4;
                 self.decode_ipv4(offset, left);
             }
-            EthernetType::VLAN => {
-                self.decode_vlan(offset, left)
-            }
-            EthernetType::T8021QINQ => {
-                self.decode_vlan(offset, left)
-            }
+            EthernetType::VLAN => self.decode_vlan(offset, left),
+            EthernetType::T8021QINQ => self.decode_vlan(offset, left),
             _ => {
                 trace!(
                     "ethernet type {}",

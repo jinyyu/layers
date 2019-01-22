@@ -38,7 +38,7 @@ extern "C" fn on_signal(sig: i32) {
 
 struct Main {
     _config: Box<config::Configure>,
-    dispatcher: Arc<dispatcher::Dispatcher>,
+    dispatcher: Arc<proto_dispatcher::Dispatcher>,
     daq: Arc<daq::DAQ>,
 }
 
@@ -46,7 +46,7 @@ impl Main {
     fn new(config: Box<config::Configure>) -> Main {
         mime::MimeParser::init();
         let daq = daq::init(&config.interface);
-        let dispatcher = dispatcher::init(config.worker_thread as u8);
+        let dispatcher = proto_dispatcher::init(config.worker_thread as u8);
 
         Main {
             _config: config,
