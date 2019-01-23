@@ -66,7 +66,9 @@ impl TCPStream {
             client: packet.src_ip,
             server: packet.dst_ip,
 
-            pending_packets: Rc::new(RefCell::new(Vec::with_capacity(TCPStream::MAX_DETECT_TIMES as usize))),
+            pending_packets: Rc::new(RefCell::new(Vec::with_capacity(
+                TCPStream::MAX_DETECT_TIMES as usize,
+            ))),
 
             client_flow: None,
             server_flow: None,
@@ -86,8 +88,8 @@ impl TCPStream {
 
         if self.state
             & (stream_state::STATE_STREAM_SKIP
-            | stream_state::STATE_STREAM_FINISHED
-            | stream_state::STATE_PROTOCOL_FAILED)
+                | stream_state::STATE_STREAM_FINISHED
+                | stream_state::STATE_PROTOCOL_FAILED)
             > 0
         {
             trace!("skip");
@@ -95,7 +97,6 @@ impl TCPStream {
         }
 
         if self.state & stream_state::STATE_PROTOCOL_DETECTING > 0 {
-
             self.pending_packets.borrow_mut().push(packet.clone());
 
             if self.flow == ptr::null() {

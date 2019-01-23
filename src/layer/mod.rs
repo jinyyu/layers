@@ -19,4 +19,5 @@ pub use self::tcp_flow::TcpFlow;
 pub use self::tcp_stream::*;
 pub use self::tcp_tracker::*;
 pub use self::udp::*;
+pub use self::udp_tracker::*;
 pub use self::vlan::*;

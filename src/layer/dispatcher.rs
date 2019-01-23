@@ -1,4 +1,4 @@
-use crate::layer::TCPTracker;
+use crate::layer::{TCPTracker, UDPTracker};
 use layer::packet::Packet;
 use std::num::Wrapping;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -31,9 +31,13 @@ impl Dispatcher {
         debug!("app stopped")
     }
 
-
-    fn worker(running: Arc<AtomicBool>, barrier: Arc<Barrier>, receiver: mpsc::Receiver<Arc<Packet>>) {
+    fn worker(
+        running: Arc<AtomicBool>,
+        barrier: Arc<Barrier>,
+        receiver: mpsc::Receiver<Arc<Packet>>,
+    ) {
         let mut tcp_tracker = Box::new(TCPTracker::new());
+        let mut udp_tracker = Box::new(UDPTracker::new());
 
         let timeout = Duration::new(1, 0);
 
@@ -45,16 +49,7 @@ impl Dispatcher {
             }
             match receiver.recv_timeout(timeout) {
                 Ok(packet) => {
-                    if packet.state & Packet::STATE_TCP > 0 {
-                        trace!(
-                            "{}:{} ->{}:{}",
-                            packet.src_ip_str(),
-                            packet.src_port,
-                            packet.dst_ip_str(),
-                            packet.dst_port
-                        );
-                        TCPTracker::on_packet(&mut tcp_tracker, &packet)
-                    }
+                    Dispatcher::dispatch_packet(&mut tcp_tracker, &mut udp_tracker, &packet);
                 }
                 Err(e) => match e {
                     mpsc::RecvTimeoutError::Timeout => {
@@ -75,6 +70,32 @@ impl Dispatcher {
             }
         }
     }
+
+    fn dispatch_packet(tcp: &mut Box<TCPTracker>, udp: &mut Box<UDPTracker>, packet: &Arc<Packet>) {
+        if packet.state & Packet::STATE_TCP > 0 {
+            trace!(
+                "tcp {}:{} ->{}:{}",
+                packet.src_ip_str(),
+                packet.src_port,
+                packet.dst_ip_str(),
+                packet.dst_port
+            );
+            tcp.on_packet(packet);
+            return;
+        }
+
+        if packet.state & Packet::STATE_UDP > 0 {
+            trace!(
+                "udp {}:{} ->{}:{}",
+                packet.src_ip_str(),
+                packet.src_port,
+                packet.dst_ip_str(),
+                packet.dst_port
+            );
+            udp.on_packet(packet);
+            return;
+        }
+    }
 }
 
 pub fn init(n_threads: u8) -> Arc<Dispatcher> {
@@ -90,9 +111,7 @@ pub fn init(n_threads: u8) -> Arc<Dispatcher> {
         let barrier = dispatcher.barrier.clone();
         let (tx, rx) = mpsc::channel::<Arc<Packet>>();
 
-        let cb = move || {
-            Dispatcher::worker(running, barrier, rx)
-        };
+        let cb = move || Dispatcher::worker(running, barrier, rx);
 
         thread::spawn(cb);
         dispatcher.senders.push(tx);
