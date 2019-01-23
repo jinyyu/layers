@@ -30,6 +30,51 @@ impl Dispatcher {
         self.barrier.wait();
         debug!("app stopped")
     }
+
+
+    fn worker(running: Arc<AtomicBool>, barrier: Arc<Barrier>, receiver: mpsc::Receiver<Arc<Packet>>) {
+        let mut tcp_tracker = Box::new(TCPTracker::new());
+
+        let timeout = Duration::new(1, 0);
+
+        loop {
+            if !running.load(Ordering::Relaxed) {
+                debug!("stop running");
+                barrier.wait();
+                return;
+            }
+            match receiver.recv_timeout(timeout) {
+                Ok(packet) => {
+                    if packet.state & Packet::STATE_TCP > 0 {
+                        trace!(
+                            "{}:{} ->{}:{}",
+                            packet.src_ip_str(),
+                            packet.src_port,
+                            packet.dst_ip_str(),
+                            packet.dst_port
+                        );
+                        TCPTracker::on_packet(&mut tcp_tracker, &packet)
+                    }
+                }
+                Err(e) => match e {
+                    mpsc::RecvTimeoutError::Timeout => {
+                        let now = SystemTime::now()
+                            .duration_since(UNIX_EPOCH)
+                            .unwrap()
+                            .as_secs()
+                            * 1000
+                            * 1000;
+                        tcp_tracker.cleanup_stream(now);
+                    }
+
+                    mpsc::RecvTimeoutError::Disconnected => {
+                        info!("Disconnected");
+                        return;
+                    }
+                },
+            }
+        }
+    }
 }
 
 pub fn init(n_threads: u8) -> Arc<Dispatcher> {
@@ -46,47 +91,7 @@ pub fn init(n_threads: u8) -> Arc<Dispatcher> {
         let (tx, rx) = mpsc::channel::<Arc<Packet>>();
 
         let cb = move || {
-            let mut tcp_tracker = Box::new(TCPTracker::new());
-
-            let timeout = Duration::new(1, 0);
-
-            loop {
-                if !running.load(Ordering::Relaxed) {
-                    debug!("stop running");
-                    barrier.wait();
-                    return;
-                }
-                match rx.recv_timeout(timeout) {
-                    Ok(packet) => {
-                        if packet.state & Packet::STATE_TCP > 0 {
-                            trace!(
-                                "{}:{} ->{}:{}",
-                                packet.src_ip_str(),
-                                packet.src_port,
-                                packet.dst_ip_str(),
-                                packet.dst_port
-                            );
-                            TCPTracker::on_packet(&mut tcp_tracker, &packet)
-                        }
-                    }
-                    Err(e) => match e {
-                        mpsc::RecvTimeoutError::Timeout => {
-                            let now = SystemTime::now()
-                                .duration_since(UNIX_EPOCH)
-                                .unwrap()
-                                .as_secs()
-                                * 1000
-                                * 1000;
-                            tcp_tracker.cleanup_stream(now);
-                        }
-
-                        mpsc::RecvTimeoutError::Disconnected => {
-                            debug!("Disconnected");
-                            return;
-                        }
-                    },
-                }
-            }
+            Dispatcher::worker(running, barrier, rx)
         };
 
         thread::spawn(cb);
