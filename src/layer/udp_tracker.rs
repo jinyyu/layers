@@ -24,5 +24,7 @@ impl UDPTracker {
         }
     }
 
-    pub fn on_packet(&mut self, packet: &Arc<Packet>) {}
+    pub fn on_packet(&mut self, packet: &Arc<Packet>) {
+        debug!("udp packet {}", packet.payload_slice().len());
+    }
 }

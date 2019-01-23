@@ -3,9 +3,9 @@ pub mod dissector;
 pub use self::dissector::*;
 
 #[repr(C, packed)]
-struct UDPHeader {
-    src_port: u16,
-    dst_port: u16,
-    len: u16,
-    checksum: u16,
+pub struct UDPHeader {
+    pub src_port: u16,
+    pub dst_port: u16,
+    pub len: u16,
+    pub checksum: u16,
 }

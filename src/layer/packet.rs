@@ -1,6 +1,6 @@
 use crate::inet;
 use crate::layer::IPProto;
-use crate::layer::{EthernetHeader, EthernetType, IPv4Header, TCPHeader, VlanHeader};
+use crate::layer::{EthernetHeader, EthernetType, IPv4Header, TCPHeader, VlanHeader, UDPHeader};
 use std::mem;
 use std::ptr;
 use std::slice;
@@ -24,6 +24,7 @@ pub struct Packet {
     pub ip_layer_len: usize,
 
     pub tcp: *const TCPHeader,
+    pub udp: *const UDPHeader,
 
     payload: *const u8,
     payload_len: usize,
@@ -86,6 +87,7 @@ impl Packet {
             ipv4: ptr::null(),
             ip_layer_len: 0,
             tcp: ptr::null(),
+            udp: ptr::null(),
 
             src_port: 0,
             dst_port: 0,
@@ -196,6 +198,10 @@ impl Packet {
                 self.state |= Packet::STATE_TCP;
                 self.decode_tcp(offset + header_len, ip_layer_len - header_len);
             }
+            IPProto::UDP => {
+                self.state |= Packet::STATE_UDP;
+                self.decode_udp(offset + header_len, ip_layer_len - header_len);
+            }
 
             _ => {
                 trace!("ip type {}", proto.to_string());
@@ -222,6 +228,29 @@ impl Packet {
         if self.payload_len > 0 {
             self.state |= Packet::STATE_PAYLOAD;
             let offset = offset + header_len;
+            self.payload = unsafe { self.data.as_ptr().offset(offset as isize) as *const u8 };
+        }
+    }
+
+    fn decode_udp(&mut self, offset: usize, left: usize) {
+        assert!(self.state & Packet::STATE_UDP > 0);
+        let udp = unsafe { &mut *(self.data.as_ptr().offset(offset as isize) as *mut UDPHeader) };
+
+        self.udp = udp;
+        self.src_port = unsafe { inet::ntohs(udp.src_port) };
+        self.dst_port = unsafe { inet::ntohs(udp.dst_port) };
+
+        let total_len = unsafe { inet::htons(udp.len) as usize };
+        if left < total_len  {
+            debug!("bad tcp packet {} {}", left, total_len);
+            self.state |= Packet::BAD_PACKET;
+            return;
+        }
+
+        self.payload_len = left - mem::size_of::<UDPHeader>();
+        if self.payload_len > 0 {
+            self.state |= Packet::STATE_PAYLOAD;
+            let offset = offset + mem::size_of::<UDPHeader>();
             self.payload = unsafe { self.data.as_ptr().offset(offset as isize) as *const u8 };
         }
     }
