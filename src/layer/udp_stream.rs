@@ -150,11 +150,13 @@ impl UDPStream {
         if is_client {
             result = self.dissector.borrow_mut().on_client_packet(packet);
         } else {
+            debug!("------------server");
             result = self.dissector.borrow_mut().on_server_packet(packet);
         }
         match result {
-            Ok(_) => {}
+            Ok(_) => { debug!("ok");}
             Err(_) => {
+                debug!("set skip");
                 self.set_skip();
             }
         }

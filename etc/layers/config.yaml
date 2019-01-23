@@ -8,6 +8,7 @@ worker_thread: 4
 dissector:
   - http
   - smb
+  - dns
 
 skip_http_content_key:
   - txt

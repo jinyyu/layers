@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use config::Configure;
 use crate::detector::{Detector, Proto};
 use libc::c_char;
+use layer::dns::DNSDissector;
 
 pub trait UDPDissector {
     fn on_client_packet(&mut self, packet: &Arc<Packet>) -> Result<(), ()>;
@@ -39,7 +40,11 @@ impl UDPDissectorAllocator {
         let conf = Configure::singleton();
 
         if conf.is_dissector_enable("dns") {
+            let cb = Arc::new( |detector: Rc<Detector>, flow: *const c_char| {
+                DNSDissector::new(detector, flow)
+            });
 
+            allocator.protocol.insert(Proto::DNS, cb);
         }
 
         allocator
@@ -70,9 +75,11 @@ impl UDPDissectorAllocator {
 
 impl UDPDissector for DefaultDissector {
     fn on_client_packet(&mut self, _packet: &Arc<Packet>) -> Result<(), ()> {
-        Ok(())
+        debug!("hi");
+        Err(())
     }
     fn on_server_packet(&mut self, _packet: &Arc<Packet>) -> Result<(), ()> {
-        Ok(())
+        debug!("hi2");
+        Err(())
     }
 }

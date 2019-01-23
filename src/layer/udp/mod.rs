@@ -1,5 +1,5 @@
 pub mod dissector;
-
+pub mod dns;
 pub use self::dissector::*;
 
 #[repr(C, packed)]
