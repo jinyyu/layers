@@ -3,13 +3,14 @@ use inet;
 use layer::packet::Packet;
 use layer::stream_state;
 use layer::tcp::TCPHeader;
-use layer::{dissector, TcpFlow};
+use layer::tcp::{TCPDissector, TCPDissectorAllocator};
+use layer::TcpFlow;
 use libc::c_char;
 use std::cell::RefCell;
-use std::collections::VecDeque;
 use std::ptr;
 use std::rc::Rc;
 use std::sync::Arc;
+use std::vec::Vec;
 
 pub struct TCPStream {
     state: u32,
@@ -31,12 +32,12 @@ pub struct TCPStream {
     detect_times: u8,
     proto: detector::Proto,
 
-    pending_packets: VecDeque<Arc<Packet>>,
+    pending_packets: Rc<RefCell<Vec<Arc<Packet>>>>,
 
     client_flow: Option<Box<TcpFlow>>,
     server_flow: Option<Box<TcpFlow>>,
 
-    dissector: Rc<RefCell<dissector::TCPDissector>>,
+    dissector: Rc<RefCell<TCPDissector>>,
 }
 
 impl TCPStream {
@@ -65,11 +66,11 @@ impl TCPStream {
             client: packet.src_ip,
             server: packet.dst_ip,
 
-            pending_packets: VecDeque::with_capacity(TCPStream::MAX_DETECT_TIMES as usize),
+            pending_packets: Rc::new(RefCell::new(Vec::with_capacity(TCPStream::MAX_DETECT_TIMES as usize))),
 
             client_flow: None,
             server_flow: None,
-            dissector: dissector::TCPDissectorAllocator::default(),
+            dissector: TCPDissectorAllocator::default(),
         });
 
         trace!("{}", stream_state::state_to_string(stream.state));
@@ -85,8 +86,8 @@ impl TCPStream {
 
         if self.state
             & (stream_state::STATE_STREAM_SKIP
-                | stream_state::STATE_STREAM_FINISHED
-                | stream_state::STATE_PROTOCOL_FAILED)
+            | stream_state::STATE_STREAM_FINISHED
+            | stream_state::STATE_PROTOCOL_FAILED)
             > 0
         {
             trace!("skip");
@@ -94,7 +95,9 @@ impl TCPStream {
         }
 
         if self.state & stream_state::STATE_PROTOCOL_DETECTING > 0 {
-            self.pending_packets.push_back(packet.clone());
+
+            self.pending_packets.borrow_mut().push(packet.clone());
+
             if self.flow == ptr::null() {
                 unsafe {
                     self.flow = detector::new_ndpi_flow();
@@ -200,15 +203,12 @@ impl TCPStream {
             self.detector
                 .alloc_tcp_dissector(&self.proto, self.detector.clone(), self.flow);
         loop {
-            let packet = self.pending_packets.pop_front();
-            match packet {
-                None => {
-                    break;
-                }
-                Some(packet) => {
-                    self.dispatch_packet(&packet);
-                }
+            let packets = self.pending_packets.clone();
+            for packet in packets.borrow().iter() {
+                self.dispatch_packet(&packet);
             }
+            self.pending_packets.borrow_mut().clear();
+            self.pending_packets.borrow_mut().shrink_to_fit();
         }
     }
 
@@ -267,7 +267,8 @@ impl TCPStream {
             "detect failed {}",
             stream_state::state_to_string(self.state)
         );
-        self.pending_packets.clear();
+        self.pending_packets.borrow_mut().clear();
+        self.pending_packets.borrow_mut().shrink_to_fit();
     }
 }
 

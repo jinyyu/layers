@@ -7,6 +7,9 @@ pub mod tcp;
 pub mod tcp_flow;
 pub mod tcp_stream;
 pub mod tcp_tracker;
+pub mod udp;
+pub mod udp_stream;
+pub mod udp_tracker;
 pub mod vlan;
 
 pub use self::ethernet::*;
@@ -15,4 +18,5 @@ pub use self::tcp::*;
 pub use self::tcp_flow::TcpFlow;
 pub use self::tcp_stream::*;
 pub use self::tcp_tracker::*;
+pub use self::udp::*;
 pub use self::vlan::*;

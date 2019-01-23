@@ -62,7 +62,7 @@ impl IPProto {
 }
 
 #[repr(C, packed)]
-pub struct IPV4Header {
+pub struct IPv4Header {
     //version & header length
     pub version_length: u8,
 
@@ -94,7 +94,7 @@ pub struct IPV4Header {
     pub dst: u32,
 }
 
-impl IPV4Header {
+impl IPv4Header {
     #[inline]
     pub fn version(&self) -> u8 {
         return (self.version_length & 0xF0) >> 4;

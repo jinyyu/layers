@@ -1,6 +1,6 @@
 use crate::inet;
 use crate::layer::IPProto;
-use crate::layer::{EthernetHeader, EthernetType, IPV4Header, TCPHeader, VlanHeader};
+use crate::layer::{EthernetHeader, EthernetType, IPv4Header, TCPHeader, VlanHeader};
 use std::mem;
 use std::ptr;
 use std::slice;
@@ -20,7 +20,7 @@ pub struct Packet {
     pub dst_ip: u32,
 
     pub ethernet: *const EthernetHeader,
-    pub ipv4: *const IPV4Header,
+    pub ipv4: *const IPv4Header,
     pub ip_layer_len: usize,
 
     pub tcp: *const TCPHeader,
@@ -162,12 +162,12 @@ impl Packet {
     fn decode_ipv4(&mut self, offset: usize, left: usize) {
         assert!(self.state & Packet::STATE_IPV4 > 0);
 
-        if left < mem::size_of::<IPV4Header>() {
+        if left < mem::size_of::<IPv4Header>() {
             self.state |= Packet::BAD_PACKET;
             return;
         }
 
-        let ipv4_header = unsafe { self.data.as_ptr().offset(offset as isize) as *mut IPV4Header };
+        let ipv4_header = unsafe { self.data.as_ptr().offset(offset as isize) as *mut IPv4Header };
         let ip = unsafe { &mut *ipv4_header };
 
         self.ipv4 = ipv4_header;
@@ -208,8 +208,8 @@ impl Packet {
         let tcp = unsafe { &mut *(self.data.as_ptr().offset(offset as isize) as *mut TCPHeader) };
 
         self.tcp = tcp;
-        self.src_port = unsafe { inet::ntohs(tcp.sport) };
-        self.dst_port = unsafe { inet::ntohs(tcp.dport) };
+        self.src_port = unsafe { inet::ntohs(tcp.src_port) };
+        self.dst_port = unsafe { inet::ntohs(tcp.dst_port) };
 
         let header_len = unsafe { (*self.tcp).header_len() as usize };
         if left < header_len {

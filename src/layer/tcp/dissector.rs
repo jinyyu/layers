@@ -29,10 +29,10 @@ impl TCPDissector for DefaultDissector {
     }
 }
 
-type DissectorAllocaCallback = Fn(Rc<Detector>, *const c_char) -> Rc<RefCell<TCPDissector>>;
+type DissectorAllocateCallback = Fn(Rc<Detector>, *const c_char) -> Rc<RefCell<TCPDissector>>;
 
 pub struct TCPDissectorAllocator {
-    protocol: HashMap<u16, Arc<DissectorAllocaCallback>>,
+    protocol: HashMap<u16, Arc<DissectorAllocateCallback>>,
 }
 
 impl TCPDissectorAllocator {

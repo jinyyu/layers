@@ -1,16 +1,16 @@
 pub mod dissector;
 pub mod http;
 
-pub use self::dissector::TCPDissector;
+pub use self::dissector::*;
 pub use self::http::HTTPDissector;
 
 #[repr(C, packed)]
 pub struct TCPHeader {
     //source port
-    pub sport: u16,
+    pub src_port: u16,
 
     // destination port
-    pub dport: u16,
+    pub dst_port: u16,
 
     // sequence number
     pub seq: u32,
