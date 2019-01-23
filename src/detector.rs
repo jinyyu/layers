@@ -5,6 +5,7 @@ use std::ffi::CStr;
 use std::rc::Rc;
 
 use crate::layer::tcp::dissector::{TCPDissector, TCPDissectorAllocator};
+use layer::udp::{UDPDissectorAllocator,UDPDissector};
 
 #[repr(C)]
 #[derive(Copy, Clone)]
@@ -325,6 +326,7 @@ extern "C" {
 pub struct Detector {
     ctx: *const c_char,
     tcp_dissector_allocator: TCPDissectorAllocator,
+    ucp_dissector_allocator: UDPDissectorAllocator,
     ip_proto: IPProto,
 }
 
@@ -334,6 +336,7 @@ impl Detector {
         Detector {
             ctx,
             tcp_dissector_allocator: TCPDissectorAllocator::new(),
+            ucp_dissector_allocator: UDPDissectorAllocator::new(),
             ip_proto,
         }
     }
@@ -404,6 +407,16 @@ impl Detector {
         flow: *const c_char,
     ) -> Rc<RefCell<TCPDissector>> {
         self.tcp_dissector_allocator
+            .alloc_dissector(proto, detector, flow)
+    }
+
+    pub fn alloc_udp_dissector(
+        &self,
+        proto: &Proto,
+        detector: Rc<Detector>,
+        flow: *const c_char,
+    ) -> Rc<RefCell<UDPDissector>> {
+        self.ucp_dissector_allocator
             .alloc_dissector(proto, detector, flow)
     }
 

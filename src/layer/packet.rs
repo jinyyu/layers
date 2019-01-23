@@ -1,6 +1,6 @@
 use crate::inet;
 use crate::layer::IPProto;
-use crate::layer::{EthernetHeader, EthernetType, IPv4Header, TCPHeader, VlanHeader, UDPHeader};
+use crate::layer::{EthernetHeader, EthernetType, IPv4Header, TCPHeader, UDPHeader, VlanHeader};
 use std::mem;
 use std::ptr;
 use std::slice;
@@ -241,7 +241,7 @@ impl Packet {
         self.dst_port = unsafe { inet::ntohs(udp.dst_port) };
 
         let total_len = unsafe { inet::htons(udp.len) as usize };
-        if left < total_len  {
+        if left < total_len {
             debug!("bad tcp packet {} {}", left, total_len);
             self.state |= Packet::BAD_PACKET;
             return;

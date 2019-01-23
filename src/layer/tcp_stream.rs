@@ -109,6 +109,8 @@ impl TCPStream {
             self.detect_protocol(packet);
         } else if self.state & stream_state::STATE_PROTOCOL_SUCCESS > 0 {
             self.dispatch_packet(packet);
+        } else {
+            unreachable!()
         }
 
         unsafe {
