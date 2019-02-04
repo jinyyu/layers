@@ -205,14 +205,13 @@ impl TCPStream {
         self.dissector =
             self.detector
                 .alloc_tcp_dissector(&self.proto, self.detector.clone(), self.flow);
-        loop {
-            let packets = self.pending_packets.clone();
-            for packet in packets.borrow().iter() {
-                self.dispatch_packet(&packet);
-            }
-            self.pending_packets.borrow_mut().clear();
-            self.pending_packets.borrow_mut().shrink_to_fit();
+
+        let packets = self.pending_packets.clone();
+        for packet in packets.borrow().iter() {
+            self.dispatch_packet(&packet);
         }
+        self.pending_packets.borrow_mut().clear();
+        self.pending_packets.borrow_mut().shrink_to_fit();
     }
 
     fn dispatch_packet(&mut self, packet: &Arc<Packet>) {

@@ -72,9 +72,9 @@ impl TCPTracker {
         }
     }
 
-    pub fn cleanup_stream(&mut self, tm: u64) {
+    pub fn cleanup_stream(&mut self, tm: u64) -> usize {
         if self.last_cleanup + TCPTracker::STREAM_CLEANUP_DURATION > tm {
-            return;
+            return 0;
         }
 
         let before = self.streams.len();
@@ -86,5 +86,6 @@ impl TCPTracker {
         let after = self.streams.len();
         debug!("tcp stream cleanup {}/{}", before - after, before);
         self.last_cleanup = tm;
+        return after - before;
     }
 }

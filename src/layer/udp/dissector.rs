@@ -1,12 +1,12 @@
+use crate::detector::{Detector, Proto};
+use config::Configure;
+use layer::dns::DNSDissector;
 use layer::packet::Packet;
+use libc::c_char;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
-use std::collections::HashMap;
-use config::Configure;
-use crate::detector::{Detector, Proto};
-use libc::c_char;
-use layer::dns::DNSDissector;
 
 pub trait UDPDissector {
     fn on_client_packet(&mut self, packet: &Arc<Packet>) -> Result<(), ()>;
@@ -40,7 +40,7 @@ impl UDPDissectorAllocator {
         let conf = Configure::singleton();
 
         if conf.is_dissector_enable("dns") {
-            let cb = Arc::new( |detector: Rc<Detector>, flow: *const c_char| {
+            let cb = Arc::new(|detector: Rc<Detector>, flow: *const c_char| {
                 DNSDissector::new(detector, flow)
             });
 
@@ -71,7 +71,6 @@ impl UDPDissectorAllocator {
         DefaultDissector::new()
     }
 }
-
 
 impl UDPDissector for DefaultDissector {
     fn on_client_packet(&mut self, _packet: &Arc<Packet>) -> Result<(), ()> {

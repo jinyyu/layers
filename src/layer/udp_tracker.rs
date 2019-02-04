@@ -14,7 +14,6 @@ pub struct UDPTracker {
 }
 
 impl UDPTracker {
-
     //micro second
     const STREAM_CLEANUP_DURATION: u64 = 1000 * 1000 * 30;
 
@@ -51,7 +50,7 @@ impl UDPTracker {
         }
 
         if !find {
-            let mut  stream = UDPStream::new(packet.clone(), self.detector.clone());
+            let mut stream = UDPStream::new(packet.clone(), self.detector.clone());
             stream.handle_packet(packet);
             finished = stream.is_finished();
 
@@ -67,9 +66,9 @@ impl UDPTracker {
         }
     }
 
-    pub fn cleanup_stream(&mut self, tm: u64) {
+    pub fn cleanup_stream(&mut self, tm: u64) -> usize {
         if self.last_cleanup + UDPTracker::STREAM_CLEANUP_DURATION > tm {
-            return;
+            return 0;
         }
 
         let before = self.streams.len();
@@ -81,5 +80,6 @@ impl UDPTracker {
         let after = self.streams.len();
         debug!("udp stream cleanup {}/{}", before - after, before);
         self.last_cleanup = tm;
+        return before - after;
     }
 }

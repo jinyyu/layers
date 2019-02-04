@@ -1,4 +1,5 @@
 use detector;
+use inet;
 use layer::packet::Packet;
 use layer::stream_state;
 use layer::udp::dissector::UDPDissector;
@@ -9,7 +10,6 @@ use std::ptr;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::vec::Vec;
-use inet;
 
 pub struct UDPStream {
     state: u32,
@@ -73,8 +73,8 @@ impl UDPStream {
 
         if self.state
             & (stream_state::STATE_STREAM_SKIP
-            | stream_state::STATE_STREAM_FINISHED
-            | stream_state::STATE_PROTOCOL_FAILED)
+                | stream_state::STATE_STREAM_FINISHED
+                | stream_state::STATE_PROTOCOL_FAILED)
             > 0
         {
             trace!("skip");
@@ -93,6 +93,7 @@ impl UDPStream {
             }
             self.detect_protocol(packet);
         } else if self.state & stream_state::STATE_PROTOCOL_SUCCESS > 0 {
+            debug!("dispatch");
             self.dispatch_packet(packet);
         } else {
             unreachable!()
@@ -154,7 +155,9 @@ impl UDPStream {
             result = self.dissector.borrow_mut().on_server_packet(packet);
         }
         match result {
-            Ok(_) => { debug!("ok");}
+            Ok(_) => {
+                debug!("ok");
+            }
             Err(_) => {
                 debug!("set skip");
                 self.set_skip();
@@ -197,14 +200,13 @@ impl UDPStream {
         self.dissector =
             self.detector
                 .alloc_udp_dissector(&self.proto, self.detector.clone(), self.flow);
-        loop {
-            let packets = self.pending_packets.clone();
-            for packet in packets.borrow().iter() {
-                self.dispatch_packet(&packet);
-            }
-            self.pending_packets.borrow_mut().clear();
-            self.pending_packets.borrow_mut().shrink_to_fit();
+
+        let packets = self.pending_packets.clone();
+        for packet in packets.borrow().iter() {
+            self.dispatch_packet(&packet);
         }
+        self.pending_packets.borrow_mut().clear();
+        self.pending_packets.borrow_mut().shrink_to_fit();
     }
 
     fn on_detect_failed(&mut self) {

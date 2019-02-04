@@ -50,6 +50,7 @@ impl Dispatcher {
             match receiver.recv_timeout(timeout) {
                 Ok(packet) => {
                     Dispatcher::dispatch_packet(&mut tcp_tracker, &mut udp_tracker, &packet);
+                    continue;
                 }
                 Err(e) => match e {
                     mpsc::RecvTimeoutError::Timeout => {
@@ -59,7 +60,7 @@ impl Dispatcher {
                             .as_secs()
                             * 1000
                             * 1000;
-                        tcp_tracker.cleanup_stream(now);
+                        tcp_tracker.cleanup_stream(now) + udp_tracker.cleanup_stream(now);
                     }
 
                     mpsc::RecvTimeoutError::Disconnected => {

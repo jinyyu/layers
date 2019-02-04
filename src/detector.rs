@@ -5,7 +5,7 @@ use std::ffi::CStr;
 use std::rc::Rc;
 
 use crate::layer::tcp::dissector::{TCPDissector, TCPDissectorAllocator};
-use layer::udp::{UDPDissectorAllocator,UDPDissector};
+use layer::udp::{UDPDissector, UDPDissectorAllocator};
 
 #[repr(C)]
 #[derive(Copy, Clone)]

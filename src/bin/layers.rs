@@ -24,32 +24,32 @@ extern "C" {
 }
 
 lazy_static! {
-    static ref APP_PTR: AtomicPtr<Main> = AtomicPtr::new(ptr::null_mut());
+    static ref LAYER_PTR: AtomicPtr<Layers> = AtomicPtr::new(ptr::null_mut());
 }
 
 extern "C" fn on_signal(sig: i32) {
     debug!("on signal {}", sig);
-    let app = APP_PTR.load(Ordering::SeqCst);
+    let main = LAYER_PTR.load(Ordering::SeqCst);
     unsafe {
-        if app != ptr::null_mut() {
-            (*app).stop();
+        if main != ptr::null_mut() {
+            (*main).stop();
         }
     }
 }
 
-struct Main {
+struct Layers {
     _config: Box<config::Configure>,
     dispatcher: Arc<dispatcher::Dispatcher>,
     daq: Arc<daq::DAQ>,
 }
 
-impl Main {
-    fn new(config: Box<config::Configure>) -> Main {
+impl Layers {
+    fn new(config: Box<config::Configure>) -> Layers {
         mime::MimeParser::init();
         let daq = daq::init(&config.interface);
         let dispatcher = dispatcher::init(config.worker_thread as u8);
 
-        Main {
+        Layers {
             _config: config,
             dispatcher,
             daq,
@@ -85,7 +85,7 @@ impl Main {
     }
 }
 
-impl Drop for Main {
+impl Drop for Layers {
     fn drop(&mut self) {
         mime::MimeParser::shutdown();
     }
@@ -118,16 +118,16 @@ fn main() {
         .init();
 
     let conf = config::load(configure);
-    Main::setup_workspace(&conf.workspace);
-    let app = Main::new(conf);
+    Layers::setup_workspace(&conf.workspace);
+    let layer = Layers::new(conf);
 
-    let ptr = &app as *const Main as *mut Main;
-    APP_PTR.store(ptr, Ordering::SeqCst);
+    let ptr = &layer as *const Layers as *mut Layers;
+    LAYER_PTR.store(ptr, Ordering::SeqCst);
 
     unsafe {
         signal(1, on_signal);
         signal(2, on_signal);
     }
 
-    app.run();
+    layer.run();
 }
